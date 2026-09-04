@@ -14,6 +14,10 @@ export interface TodayEntryCardProps {
   date?: string;
   emptyMessage?: string;
   onAddEntry?: () => void;
+  hasEntry?: boolean;
+  collectionAmount?: number;
+  expenseAmount?: number;
+  dayType?: 'working' | 'holiday';
 }
 
 const TOOTH_SIZE = 10;
@@ -27,6 +31,10 @@ export function TodayEntryCard({
   date = '04 Sept 2026',
   emptyMessage = 'No entry recorded for today yet.',
   onAddEntry,
+  hasEntry = false,
+  collectionAmount = 0,
+  expenseAmount = 0,
+  dayType = 'working',
 }: TodayEntryCardProps) {
   const [cardWidth, setCardWidth] = useState(0);
 
@@ -40,8 +48,6 @@ export function TodayEntryCard({
   const handlePress = () => {
     if (onAddEntry) {
       onAddEntry();
-    } else {
-      console.log("Add today's entry pressed");
     }
   };
 
@@ -49,27 +55,59 @@ export function TodayEntryCard({
     <View style={styles.cardContainer} onLayout={handleLayout}>
       {/* Paper Body */}
       <View style={styles.paperBody}>
-        {/* Day of Week */}
-        <Text style={styles.dayLabel}>{dayOfWeek}</Text>
+        {/* Header row: Day of Week & Day Type pill if recorded */}
+        <View style={styles.headerRow}>
+          <Text style={styles.dayLabel}>{dayOfWeek}</Text>
+          {hasEntry && (
+            <View style={styles.dayTypeBadge}>
+              <Text style={styles.dayTypeBadgeText}>
+                {dayType === 'holiday' ? 'Holiday' : 'Working day'}
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Date Display */}
         <Text style={styles.dateText}>{date}</Text>
 
-        {/* Empty State Message */}
-        <Text style={styles.emptyText}>{emptyMessage}</Text>
+        {/* Content depending on entry existence */}
+        {hasEntry ? (
+          <View style={styles.recordedContainer}>
+            <View style={styles.metricsRow}>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>Collection</Text>
+                <Text style={styles.incomeValue}>
+                  ₹ {collectionAmount.toLocaleString('en-IN')}
+                </Text>
+              </View>
+              <View style={styles.metricDivider} />
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>Total Expense</Text>
+                <Text style={styles.expenseValue}>
+                  ₹ {expenseAmount.toLocaleString('en-IN')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
+        )}
 
         {/* Compact Action Button */}
         <View style={styles.buttonRow}>
           <Pressable
             style={({ pressed }) => [
               styles.addButton,
+              hasEntry && styles.editButton,
               pressed && styles.addButtonPressed,
             ]}
             onPress={handlePress}
             accessibilityRole="button"
-            accessibilityLabel="Add today's entry"
+            accessibilityLabel={hasEntry ? "Edit today's entry" : "Add today's entry"}
           >
-            <Text style={styles.addButtonText}>Add today's entry</Text>
+            <Text style={styles.addButtonText}>
+              {hasEntry ? "Edit today's entry" : "Add today's entry"}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -103,13 +141,29 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 18,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   dayLabel: {
     fontSize: 9.5,
     fontWeight: '600',
     letterSpacing: 1.5,
     color: Colors.secondaryText,
     textTransform: 'uppercase',
-    marginBottom: 4,
+  },
+  dayTypeBadge: {
+    backgroundColor: '#E4EAE0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  dayTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.accentGreen,
   },
   dateText: {
     fontSize: 16,
@@ -120,12 +174,49 @@ const styles = StyleSheet.create({
       android: 'serif',
       default: 'serif',
     }),
-    marginBottom: 14,
+    marginBottom: 12,
   },
   emptyText: {
     fontSize: 12.5,
     color: Colors.secondaryText,
     marginBottom: 14,
+  },
+  recordedContainer: {
+    backgroundColor: '#F7FAF5',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8EFE5',
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  metricItem: {
+    alignItems: 'center',
+  },
+  metricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#D7E0D3',
+  },
+  metricLabel: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: Colors.secondaryText,
+    marginBottom: 2,
+  },
+  incomeValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.accentGreen,
+  },
+  expenseValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.expenseRed,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -138,6 +229,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  editButton: {
+    backgroundColor: '#2E5343',
   },
   addButtonPressed: {
     backgroundColor: Colors.accentGreenPressed,

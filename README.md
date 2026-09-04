@@ -79,6 +79,30 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
   - Clean abstracted queries with full TypeScript return types.
   - Automatically fetches or provisions shop profile upon login/registration.
 
+### ✅ Phase 5: Daily Entry System & Add Entry Screen (`app/add-entry.tsx`)
+- **Add Entry Screen**:
+  - Screen modeled accurately after the approved reference design with warm ledger notebook aesthetics.
+  - Native calendar date picker via `@react-native-community/datetimepicker` with web fallback.
+  - Segmented `Working day` / `Holiday` toggle selector.
+  - Required `Today's collection` currency input with `₹` prefix and non-negative validation.
+  - Full-width `Home expense` input.
+  - Card-based `Other expenses` system with `+ Add expense`, individual white cards featuring `Name` input (`e.g. Sugar`), trash delete button, `Amount` box with `₹` prefix, and `Category` dropdown selector (supporting `Business`, `Personal`, `Household`, `Staff`, `Transport`, `Utilities`, `Other`) with interactive selection modal.
+  - Multiline `Notes` field with *"Optional"* caption.
+  - Full-width deep emerald green `Save entry` button with loading state.
+  - Automatic detection of existing entries for the selected date, populating fields for seamless updating.
+- **Supabase Backend Schema & RLS**:
+  - `public.daily_entries`: Stores daily entry financial metrics with `unique(shop_id, entry_date)` and `check >= 0`.
+  - `public.other_expenses`: Normalized table storing dynamic individual expenses with `category` field linked to daily entries with `ON DELETE CASCADE`.
+  - Strict Row Level Security policies (`auth.uid() = user_id`) on both tables.
+  - Atomic PostgreSQL RPC `save_daily_entry`: Executes transactional upsert of daily entry and synchronized replacement of other expenses with zero risk of partial data states.
+- **Home Dashboard Integration**:
+  - Tapping "Add today's entry" or the floating `+` button navigates to `/add-entry`.
+  - Uses real device local date for header and today card.
+  - Reactive `useFocusEffect` auto-refreshes today's entry on return, showing recorded collection and expense metrics.
+- **Phone Number Authentication**:
+  - Direct 10-digit phone number registration and login (`phone@dailyexpenses.app` Supabase bridge).
+  - Clean numeric keyboard input and validation.
+
 ### ✅ System & Platform Upgrades: Expo SDK 57
 - Upgraded the codebase to **Expo SDK 57** (`expo@57.0.20`, `react@19.2.3`, `react-native@0.86.3`) to ensure full compatibility with the latest Expo Go client.
 - Fixed React Native 0.86+ styling deprecations (migrated `StyleSheet.absoluteFillObject` to explicit position coordinates in `LedgerBackground.tsx`).
@@ -95,15 +119,17 @@ d:/Daily Expenses App/
 │   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
 │   ├── index.tsx                        # Login Screen (Phase 1)
 │   ├── register.tsx                     # Shop Registration Screen (Phase 2)
-│   └── home.tsx                         # Main Dashboard / Home Screen (Phase 3)
+│   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3 & 5)
+│   └── add-entry.tsx                    # Add / Edit Daily Entry Screen (Phase 5)
 ├── components/                          # Reusable UI Components
 │   ├── BottomNavigation.tsx             # Fixed tab bar with center floating '+' FAB
+│   ├── DatePickerModal.tsx              # Cross-platform date picker (Android/iOS/Web)
 │   ├── Input.tsx                        # Themed text input with validation styling
 │   ├── LedgerBackground.tsx             # Ruled notebook line background generator
 │   ├── MonthlySummaryCard.tsx           # Monthly analytics & breakdown progress bar
 │   ├── PasswordInput.tsx                # Secure password field with eye icon toggle
 │   ├── PrimaryButton.tsx                # Terracotta action button with loading state
-│   └── TodayEntryCard.tsx               # Torn-paper receipt card with zigzag edge
+│   └── TodayEntryCard.tsx               # Torn-paper receipt card with live entry state
 ├── constants/
 │   └── colors.ts                        # Master theme design tokens & financial colors
 ├── context/
@@ -111,12 +137,15 @@ d:/Daily Expenses App/
 ├── lib/
 │   └── supabase.ts                      # Supabase client singleton with AsyncStorage
 ├── services/
+│   ├── dailyEntryService.ts             # Supabase operations for daily entries & expenses
 │   └── shopService.ts                   # Supabase DB operations for `public.shops`
 ├── supabase/
 │   └── migrations/
-│       └── 0001_create_shops.sql        # PostgreSQL schema, triggers & RLS policies
+│       ├── 0001_create_shops.sql        # Phase 4: shops table & RLS
+│       └── 0002_daily_entry_system.sql  # Phase 5: daily_entries, other_expenses, RPC
 ├── types/
 │   ├── database.types.ts                # TypeScript definitions for Supabase tables
+│   ├── dailyEntry.ts                    # Daily entry & other expenses models
 │   └── shop.ts                          # Shop model and registration form types
 ├── .env.example                         # Environment variables template
 ├── app.json                             # Expo application configuration
@@ -161,6 +190,35 @@ create policy "Users can update their own shop"
   on public.shops for update to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- public.daily_entries table (Phase 5)
+create table public.daily_entries (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  entry_date date not null,
+  day_type text not null default 'working' check (day_type in ('working', 'holiday')),
+  collection numeric(12,2) not null default 0 check (collection >= 0),
+  milk_expense numeric(12,2) not null default 0 check (milk_expense >= 0),
+  vimal_expense numeric(12,2) not null default 0 check (vimal_expense >= 0),
+  home_expense numeric(12,2) not null default 0 check (home_expense >= 0),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint daily_entries_shop_date_key unique (shop_id, entry_date)
+);
+
+-- public.other_expenses table (Phase 5)
+create table public.other_expenses (
+  id uuid primary key default gen_random_uuid(),
+  daily_entry_id uuid not null references public.daily_entries(id) on delete cascade,
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  expense_name text not null check (length(trim(expense_name)) > 0),
+  amount numeric(12,2) not null default 0 check (amount >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 ```
 
 ---

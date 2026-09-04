@@ -9,19 +9,24 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { shopService } from '../services/shopService';
 
+export interface SignInCredentials {
+  mobileOrEmail: string;
+  password: string;
+}
+
 export interface SignUpParams {
-  email: string;
+  mobile: string;
   password: string;
   shopName: string;
   ownerName: string;
-  mobile?: string;
+  email?: string;
 }
 
 export interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (credentials: { email: string; password: string }) => Promise<{ error: Error | null }>;
+  signIn: (credentials: SignInCredentials) => Promise<{ error: Error | null }>;
   signUp: (params: SignUpParams) => Promise<{
     session: Session | null;
     user: User | null;
@@ -92,122 +97,194 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const signIn = useCallback(async ({ email, password }: { email: string; password: string }) => {
-    try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
-      if (error) {
-        let friendlyMessage = 'Invalid email or password.';
-        if (error.message.toLowerCase().includes('email not confirmed')) {
-          friendlyMessage = 'Please confirm your email address before signing in.';
-        } else if (error.message.toLowerCase().includes('network') || error.message.toLowerCase().includes('failed to fetch')) {
-          friendlyMessage = 'Network error. Please check your connection and try again.';
-        } else if (error.status === 429) {
-          friendlyMessage = 'Too many attempts. Please wait a few moments and try again.';
+  const signIn = useCallback(
+    async ({ mobileOrEmail, password }: SignInCredentials) => {
+      try {
+        const trimmed = mobileOrEmail.trim();
+        if (!trimmed) {
+          return { error: new Error('Please enter your mobile number.') };
         }
-        return { error: new Error(friendlyMessage) };
-      }
-
-      if (data.session) {
-        setSession(data.session);
-        setUser(data.session.user);
-        // Ensure shop profile is populated
-        if (data.session.user) {
-          await shopService.getOrCreateShopForUser(data.session.user);
+        if (!password) {
+          return { error: new Error('Please enter your password.') };
         }
+
+        let authEmail: string;
+
+        // If user typed an email directly with @, use it
+        if (trimmed.includes('@')) {
+          authEmail = trimmed.toLowerCase();
+        } else {
+          // Normalize mobile number: extract digits and take the last 10
+          const digits = trimmed.replace(/\D/g, '');
+          const cleanMobile = digits.length > 10 ? digits.slice(-10) : digits;
+
+          if (!cleanMobile || cleanMobile.length < 10) {
+            return { error: new Error('Please enter a valid 10-digit mobile number.') };
+          }
+
+          // 1. Try resolving mobile number to registered auth email using database RPC
+          try {
+            const { data: resolvedEmail, error: rpcError } = await supabase.rpc(
+              'get_auth_email_for_mobile',
+              { p_mobile: cleanMobile }
+            );
+
+            if (!rpcError && resolvedEmail && typeof resolvedEmail === 'string') {
+              authEmail = resolvedEmail;
+            } else {
+              authEmail = `${cleanMobile}@dailyexpenses.app`;
+            }
+          } catch {
+            authEmail = `${cleanMobile}@dailyexpenses.app`;
+          }
+        }
+
+        // Authenticate with Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password,
+        });
+
+        if (error) {
+          let friendlyMessage = 'Invalid mobile number or password.';
+          if (error.message.toLowerCase().includes('email not confirmed')) {
+            friendlyMessage = 'Please confirm your account email before signing in.';
+          } else if (
+            error.message.toLowerCase().includes('network') ||
+            error.message.toLowerCase().includes('failed to fetch')
+          ) {
+            friendlyMessage = 'Network error. Please check your connection and try again.';
+          } else if (error.status === 429) {
+            friendlyMessage = 'Too many attempts. Please wait a few moments and try again.';
+          }
+          return { error: new Error(friendlyMessage) };
+        }
+
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+          // Ensure shop profile is populated
+          if (data.session.user) {
+            await shopService.getOrCreateShopForUser(data.session.user);
+          }
+        }
+
+        return { error: null };
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+        return { error: new Error(message) };
       }
+    },
+    []
+  );
 
-      return { error: null };
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      return { error: new Error(message) };
-    }
-  }, []);
+  const signUp = useCallback(
+    async ({ mobile, password, shopName, ownerName, email }: SignUpParams) => {
+      try {
+        const digits = mobile.replace(/\D/g, '');
+        const cleanMobile = digits.length > 10 ? digits.slice(-10) : digits;
 
-  const signUp = useCallback(async ({ email, password, shopName, ownerName, mobile }: SignUpParams) => {
-    try {
-      const normalizedEmail = email.trim().toLowerCase();
-      const trimmedShopName = shopName.trim();
-      const trimmedOwnerName = ownerName.trim();
-      const trimmedMobile = mobile?.trim() || null;
+        if (!cleanMobile || cleanMobile.length < 10) {
+          return {
+            session: null,
+            user: null,
+            needsEmailConfirmation: false,
+            error: new Error('Please enter a valid 10-digit mobile number.'),
+          };
+        }
 
-      // 1. Create auth user with shop profile in user metadata
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          data: {
+        const trimmedEmail = email?.trim().toLowerCase();
+        // If an email was provided, use it; otherwise, use deterministic phone email
+        const authEmail = trimmedEmail || `${cleanMobile}@dailyexpenses.app`;
+        const trimmedShopName = shopName.trim();
+        const trimmedOwnerName = ownerName.trim();
+
+        // 1. Create auth user with shop profile in user metadata
+        const { data, error } = await supabase.auth.signUp({
+          email: authEmail,
+          password,
+          options: {
+            data: {
+              shop_name: trimmedShopName,
+              owner_name: trimmedOwnerName,
+              mobile: cleanMobile,
+              contact_email: trimmedEmail || null,
+            },
+          },
+        });
+
+        if (error) {
+          let friendlyMessage = error.message;
+          if (
+            error.message.toLowerCase().includes('already registered') ||
+            error.message.toLowerCase().includes('already exists')
+          ) {
+            friendlyMessage =
+              'An account with this mobile number already exists. Please sign in.';
+          } else if (error.message.toLowerCase().includes('password')) {
+            friendlyMessage = 'Password should be at least 6 characters.';
+          }
+          return {
+            session: null,
+            user: null,
+            needsEmailConfirmation: false,
+            error: new Error(friendlyMessage),
+          };
+        }
+
+        const activeUser = data.user;
+        const activeSession = data.session;
+        const needsEmailConfirmation = !activeSession;
+
+        // 2. If session is immediately active, insert into shops table
+        if (activeUser && activeSession) {
+          const { error: profileError } = await shopService.createShop({
+            user_id: activeUser.id,
             shop_name: trimmedShopName,
             owner_name: trimmedOwnerName,
-            mobile: trimmedMobile,
-          },
-        },
-      });
+            email: trimmedEmail || null,
+            mobile: cleanMobile,
+          });
 
-      if (error) {
-        let friendlyMessage = error.message;
-        if (error.message.toLowerCase().includes('already registered')) {
-          friendlyMessage = 'An account with this email already exists. Please sign in.';
-        } else if (error.message.toLowerCase().includes('password')) {
-          friendlyMessage = 'Password should be at least 6 characters.';
+          if (profileError) {
+            console.error(
+              '[AuthContext.signUp] Profile creation failed:',
+              profileError.message
+            );
+            return {
+              session: activeSession,
+              user: activeUser,
+              needsEmailConfirmation: false,
+              error: new Error(
+                'Account created, but failed to setup shop profile. Please sign in.'
+              ),
+            };
+          }
+
+          setSession(activeSession);
+          setUser(activeUser);
         }
+
+        return {
+          session: activeSession,
+          user: activeUser,
+          needsEmailConfirmation,
+          error: null,
+        };
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : 'Registration failed. Please try again.';
         return {
           session: null,
           user: null,
           needsEmailConfirmation: false,
-          error: new Error(friendlyMessage),
+          error: new Error(message),
         };
       }
-
-      const activeUser = data.user;
-      const activeSession = data.session;
-      const needsEmailConfirmation = !activeSession;
-
-      // 2. If session is immediately active (email confirmation disabled or auto-confirmed), insert into shops table
-      if (activeUser && activeSession) {
-        const { error: profileError } = await shopService.createShop({
-          user_id: activeUser.id,
-          shop_name: trimmedShopName,
-          owner_name: trimmedOwnerName,
-          email: normalizedEmail,
-          mobile: trimmedMobile,
-        });
-
-        if (profileError) {
-          console.error('[AuthContext.signUp] Profile creation failed:', profileError.message);
-          // Return error so user is notified and can safely retry
-          return {
-            session: activeSession,
-            user: activeUser,
-            needsEmailConfirmation: false,
-            error: new Error('Account created, but failed to setup shop profile. Please try logging in.'),
-          };
-        }
-
-        setSession(activeSession);
-        setUser(activeUser);
-      }
-
-      return {
-        session: activeSession,
-        user: activeUser,
-        needsEmailConfirmation,
-        error: null,
-      };
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
-      return {
-        session: null,
-        user: null,
-        needsEmailConfirmation: false,
-        error: new Error(message),
-      };
-    }
-  }, []);
+    },
+    []
+  );
 
   const signOut = useCallback(async () => {
     try {

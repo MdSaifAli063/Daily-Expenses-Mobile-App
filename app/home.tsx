@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Platform,
   ScrollView,
@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { LedgerBackground } from '../components/LedgerBackground';
@@ -15,19 +15,9 @@ import { MonthlySummaryCard } from '../components/MonthlySummaryCard';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { useAuth } from '../context/AuthContext';
 import { shopService } from '../services/shopService';
+import { dailyEntryService, getLocalDateString } from '../services/dailyEntryService';
+import { DailyEntry } from '../types/dailyEntry';
 import { Shop } from '../types/shop';
-
-// Static mock data for financial and date placeholders in Phase 4
-const STATIC_PLACEHOLDER_DATA = {
-  dayOfWeek: 'FRIDAY',
-  date: '04 Sept 2026',
-  emptyMessage: 'No entry recorded for today yet.',
-  collection: '₹0',
-  expense: '₹0',
-  profit: '₹0',
-  workingDays: '0 working days',
-  holidays: '0 holidays',
-};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -36,7 +26,23 @@ export default function HomeScreen() {
   const [loadingShop, setLoadingShop] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Load authenticated user's shop profile from Supabase PostgreSQL
+  // Today's entry state
+  const [todayEntry, setTodayEntry] = useState<DailyEntry | null>(null);
+  const [loadingTodayEntry, setLoadingTodayEntry] = useState(false);
+
+  // Current local device date details
+  const today = new Date();
+  const dayOfWeekName = today
+    .toLocaleDateString('en-US', { weekday: 'long' })
+    .toUpperCase();
+  const formattedTodayDate = today.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const todayDateStr = getLocalDateString(today);
+
+  // Load authenticated user's shop profile from Supabase
   useEffect(() => {
     let isMounted = true;
 
@@ -66,23 +72,53 @@ export default function HomeScreen() {
     };
   }, [user]);
 
-  const handleAddTodayEntry = () => {
-    console.log("Add today's entry pressed");
+  // Refresh today's entry on focus (so saving in AddEntry immediately updates Home)
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      if (!shop?.id) return;
+
+      setLoadingTodayEntry(true);
+      dailyEntryService
+        .getEntryByDate(todayDateStr, shop.id)
+        .then(({ data }) => {
+          if (isMounted) {
+            setTodayEntry(data);
+          }
+        })
+        .catch((err) => {
+          console.error('[HomeScreen] Error fetching today entry:', err);
+        })
+        .finally(() => {
+          if (isMounted) setLoadingTodayEntry(false);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [shop?.id, todayDateStr])
+  );
+
+  // Navigation handlers
+  const handleOpenAddEntry = () => {
+    router.push({
+      pathname: '/add-entry',
+      params: { date: todayDateStr },
+    });
   };
 
   const handleFullReport = () => {
     console.log('Full report pressed');
   };
 
-  const handleAddExpense = () => {
-    console.log('Add expense pressed');
-  };
-
   const handleTabPress = async (tab: string) => {
+    if (tab === 'entries') {
+      handleOpenAddEntry();
+      return;
+    }
     if (tab === 'logout') {
       if (isLoggingOut) return;
       setIsLoggingOut(true);
-      console.log('Logout pressed - executing Supabase signOut');
       try {
         await signOut();
         router.replace('/');
@@ -96,13 +132,25 @@ export default function HomeScreen() {
     console.log(`${tab.charAt(0).toUpperCase() + tab.slice(1)} pressed`);
   };
 
-  // Dynamic user & shop greeting derived from Supabase PostgreSQL
+  // Header texts
   const displayedShopName = shop?.shop_name || (loadingShop ? 'Loading...' : 'Your Shop');
   const displayedOwnerGreeting = shop?.owner_name
     ? `Hi, ${shop.owner_name}`
     : loadingShop
     ? 'Hi, loading...'
     : 'Hi, there';
+
+  // Calculate today's total expenses if entry exists
+  const otherExpensesSum = (todayEntry?.other_expenses || []).reduce(
+    (acc, oe) => acc + (Number(oe.amount) || 0),
+    0
+  );
+  const totalTodayExpense = todayEntry
+    ? (Number(todayEntry.milk_expense) || 0) +
+      (Number(todayEntry.vimal_expense) || 0) +
+      (Number(todayEntry.home_expense) || 0) +
+      otherExpensesSum
+    : 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -121,24 +169,28 @@ export default function HomeScreen() {
           <Text style={styles.ownerGreeting}>{displayedOwnerGreeting}</Text>
         </View>
 
-        {/* Today's Entry Card (Phase 3 visual design preserved) */}
+        {/* Today's Entry Card with live Supabase data */}
         <View style={styles.cardWrapper}>
           <TodayEntryCard
-            dayOfWeek={STATIC_PLACEHOLDER_DATA.dayOfWeek}
-            date={STATIC_PLACEHOLDER_DATA.date}
-            emptyMessage={STATIC_PLACEHOLDER_DATA.emptyMessage}
-            onAddEntry={handleAddTodayEntry}
+            dayOfWeek={dayOfWeekName}
+            date={formattedTodayDate}
+            emptyMessage="No entry recorded for today yet."
+            onAddEntry={handleOpenAddEntry}
+            hasEntry={!!todayEntry}
+            collectionAmount={Number(todayEntry?.collection) || 0}
+            expenseAmount={totalTodayExpense}
+            dayType={todayEntry?.day_type || 'working'}
           />
         </View>
 
-        {/* Monthly Summary Card (Phase 3 visual design preserved) */}
+        {/* Monthly Summary Card */}
         <View style={styles.cardWrapper}>
           <MonthlySummaryCard
-            collection={STATIC_PLACEHOLDER_DATA.collection}
-            expense={STATIC_PLACEHOLDER_DATA.expense}
-            profit={STATIC_PLACEHOLDER_DATA.profit}
-            workingDays={STATIC_PLACEHOLDER_DATA.workingDays}
-            holidays={STATIC_PLACEHOLDER_DATA.holidays}
+            collection={`₹${(Number(todayEntry?.collection) || 0).toLocaleString('en-IN')}`}
+            expense={`₹${totalTodayExpense.toLocaleString('en-IN')}`}
+            profit={`₹${((Number(todayEntry?.collection) || 0) - totalTodayExpense).toLocaleString('en-IN')}`}
+            workingDays={todayEntry?.day_type === 'working' ? '1 working day' : '0 working days'}
+            holidays={todayEntry?.day_type === 'holiday' ? '1 holiday' : '0 holidays'}
             onFullReport={handleFullReport}
           />
         </View>
@@ -148,7 +200,7 @@ export default function HomeScreen() {
       <BottomNavigation
         activeTab="home"
         onTabPress={handleTabPress}
-        onAddPress={handleAddExpense}
+        onAddPress={handleOpenAddEntry}
       />
     </SafeAreaView>
   );

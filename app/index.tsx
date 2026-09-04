@@ -21,7 +21,7 @@ import { useAuth } from '../context/AuthContext';
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,11 +31,21 @@ export default function LoginScreen() {
   const topSpace = Math.max(height * 0.14, 50);
 
   const handleSignIn = async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail) {
-      setAuthError('Please enter your email address.');
+    const trimmedInput = mobile.trim();
+    if (!trimmedInput) {
+      setAuthError('Please enter your mobile number.');
       return;
     }
+
+    // If not email format, validate 10-digit mobile number
+    if (!trimmedInput.includes('@')) {
+      const cleanDigits = trimmedInput.replace(/\D/g, '');
+      if (cleanDigits.length < 10) {
+        setAuthError('Please enter a valid 10-digit mobile number.');
+        return;
+      }
+    }
+
     if (!password) {
       setAuthError('Please enter your password.');
       return;
@@ -45,7 +55,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await signIn({ email: trimmedEmail, password });
+      const { error } = await signIn({ mobileOrEmail: trimmedInput, password });
       if (error) {
         setAuthError(error.message);
       } else {
@@ -100,19 +110,20 @@ export default function LoginScreen() {
                 </View>
               )}
 
-              {/* Email Address Field (Updated from Mobile number for Supabase Auth) */}
+              {/* Mobile Number Field (Shopkeeper Login) */}
               <Input
-                label="Email address"
+                label="Mobile number"
                 required
-                value={email}
+                value={mobile}
                 onChangeText={(val) => {
-                  setEmail(val);
+                  setMobile(val);
                   if (authError) setAuthError(null);
                 }}
-                keyboardType="email-address"
+                placeholder="10-digit mobile number"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
                 returnKeyType="next"
               />
 
