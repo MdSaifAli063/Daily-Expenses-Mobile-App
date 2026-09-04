@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Daily Expenses App",
+    "slug": "daily-expenses-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "dailyexpenses",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F6F1"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F6F1"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset"
+    ]
+  }
+}
