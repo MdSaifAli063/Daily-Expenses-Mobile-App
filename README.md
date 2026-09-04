@@ -1,0 +1,225 @@
+# 📒 Daily Expenses / Shop Ledger Mobile App
+
+> A digital **Bahi-Khata (Shop Ledger)** mobile application crafted for small business owners and shopkeepers. Features an authentic warm ruled-paper aesthetic, secure **Supabase Authentication**, and PostgreSQL database with **Row Level Security (RLS)**.
+
+---
+
+## 📱 Project Overview
+
+The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo SDK 57**, and **TypeScript**, connected directly to **Supabase** backend services (Auth + PostgreSQL + Storage). It eliminates the need for an intermediate Node.js/Express.js server, delivering real-time performance, client-side encryption, and strict data isolation per shop.
+
+---
+
+## 🎨 Design Philosophy & Visual Aesthetic
+
+- **Warm Shop Ledger Aesthetic**: Mimics traditional Indian *Bahi-Khata* accounts notebooks with creamy parchment/kraft paper backgrounds (`#FAF5EB` / `#FDFBF7`) and authentic faint ruled ledger lines (`#E2D5BE`).
+- **Torn Paper Effect**: The "Today's Entry" card features a custom mathematical SVG-less zigzag perforated edge reminiscent of physical cash register receipts and torn notebook sheets.
+- **Shopkeeper Financial Palette**:
+  - **Income / Collection**: Deep Emerald Green (`#2E7D32`) with `+₹` prefixes.
+  - **Expenses**: Bold Terracotta Red (`#C84B31` / `#D32F2F`) with `-₹` prefixes.
+  - **Net Cash-in-Hand**: High-contrast, warm dark brown badges (`#2D241E`).
+- **Tactile Micro-Interactions**: Active press scaling, smooth animations, and clean field validation feedback.
+
+---
+
+## 🚀 Progress & Completed Phases
+
+### ✅ Phase 1: Authentication — Login UI
+- **Ruled Paper Background**: Global `LedgerBackground` component dynamically calculates screen height and renders subtle horizontal ledger lines.
+- **Form Components**:
+  - `Input`: Customized shop-ledger text input with floating-style labels, focused border highlights, and validation error messages.
+  - `PasswordInput`: Reusable password input with show/hide password toggle eye icon.
+  - `PrimaryButton`: High-contrast terracotta button with active press opacity and loading spinner indicator.
+- **Responsive Layout**: Keyboard avoidance handling (`KeyboardAvoidingView`, `ScrollView`, `TouchableWithoutFeedback`) preventing inputs from being occluded on mobile devices.
+
+### ✅ Phase 2: Onboarding — Registration UI & Client Validation
+- **Multi-Field Registration**:
+  - **Shop Name**: e.g., *"Gupta General Store"*
+  - **Owner Name**: e.g., *"Ramesh Gupta"*
+  - **Email Address**: Formatted email validation
+  - **Mobile Number**: Numeric keypad with 10-digit Indian mobile validation
+  - **Password & Confirm Password**: Minimum 6 characters with match checking
+- **Navigation & Routing**: Built on `expo-router` with typed navigation links (`/` for Login, `/register` for Registration).
+
+### ✅ Phase 3: Main Dashboard / Home Screen UI (`app/home.tsx`)
+- **Dynamic Header**:
+  - Displays registered **Shop Name** and **Owner Name**.
+  - Current Date display formatted with day, date, and month (e.g., *"Fri, 05 Sep 2026"*).
+  - Quick **Logout** action icon with confirmation prompt.
+- **Today's Entry Card (`components/TodayEntryCard.tsx`)**:
+  - Authentic receipt look with perforated zigzag torn-paper bottom edge.
+  - Dual metrics: **Today's Collection** (Income) vs **Today's Expenses**.
+  - Highlighted **Net Balance / Cash-in-Hand** calculation pill.
+- **Monthly Summary Card (`components/MonthlySummaryCard.tsx`)**:
+  - Current calendar month tracking.
+  - Monthly Collection & Monthly Expense metrics.
+  - Visual visual financial breakdown bar showing income-to-expense proportion.
+- **Fixed Bottom Navigation (`components/BottomNavigation.tsx`)**:
+  - 4 Tab destinations: **Home**, **Entries**, **Reports**, **Profile**.
+  - Center floating terracotta `+` Floating Action Button (FAB) with custom curved cutout for rapid daily entry creation.
+
+### ✅ Phase 4: Supabase Backend & Cloud Integration
+- **Direct-to-Supabase Architecture**: Completely serverless frontend. No custom Express.js or Node.js server needed.
+- **Supabase Authentication**:
+  - Native Email & Password sign-up and sign-in via `@supabase/supabase-js`.
+  - Persistent auth sessions backed by `@react-native-async-storage/async-storage`.
+  - `react-native-url-polyfill` integration for standard browser URL compliance on native runtimes.
+- **Centralized `AuthContext` (`context/AuthContext.tsx`)**:
+  - Manages reactive `session`, `user`, `shop`, and `isLoading` states.
+  - Automatic session restoration on app boot.
+  - Subscribes to Supabase `onAuthStateChange` events for instant auth state propagation.
+- **Route Protection (`app/_layout.tsx`)**:
+  - Redirects unauthenticated visitors to the Login screen (`/`).
+  - Redirects authenticated users directly to the Dashboard (`/home`).
+  - Shows an authentic ledger loading screen while session is being verified.
+- **PostgreSQL Database & Row Level Security (RLS)**:
+  - Table: `public.shops` linked directly to `auth.users(id)` via Foreign Key with `ON DELETE CASCADE`.
+  - Granular RLS policies ensuring that shopkeepers can strictly only view, insert, update, or delete their own shop data.
+- **Shop Service (`services/shopService.ts`)**:
+  - Clean abstracted queries with full TypeScript return types.
+  - Automatically fetches or provisions shop profile upon login/registration.
+
+### ✅ System & Platform Upgrades: Expo SDK 57
+- Upgraded the codebase to **Expo SDK 57** (`expo@57.0.20`, `react@19.2.3`, `react-native@0.86.3`) to ensure full compatibility with the latest Expo Go client.
+- Fixed React Native 0.86+ styling deprecations (migrated `StyleSheet.absoluteFillObject` to explicit position coordinates in `LedgerBackground.tsx`).
+- Enabled cross-platform web support via `react-native-web` and `react-dom`.
+- Verified 100% type safety (`npx tsc --noEmit` passes with 0 errors).
+
+---
+
+## 📂 Project Architecture
+
+```
+d:/Daily Expenses App/
+├── app/                                 # Expo Router (File-based navigation)
+│   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
+│   ├── index.tsx                        # Login Screen (Phase 1)
+│   ├── register.tsx                     # Shop Registration Screen (Phase 2)
+│   └── home.tsx                         # Main Dashboard / Home Screen (Phase 3)
+├── components/                          # Reusable UI Components
+│   ├── BottomNavigation.tsx             # Fixed tab bar with center floating '+' FAB
+│   ├── Input.tsx                        # Themed text input with validation styling
+│   ├── LedgerBackground.tsx             # Ruled notebook line background generator
+│   ├── MonthlySummaryCard.tsx           # Monthly analytics & breakdown progress bar
+│   ├── PasswordInput.tsx                # Secure password field with eye icon toggle
+│   ├── PrimaryButton.tsx                # Terracotta action button with loading state
+│   └── TodayEntryCard.tsx               # Torn-paper receipt card with zigzag edge
+├── constants/
+│   └── colors.ts                        # Master theme design tokens & financial colors
+├── context/
+│   └── AuthContext.tsx                  # Global Supabase authentication context & hooks
+├── lib/
+│   └── supabase.ts                      # Supabase client singleton with AsyncStorage
+├── services/
+│   └── shopService.ts                   # Supabase DB operations for `public.shops`
+├── supabase/
+│   └── migrations/
+│       └── 0001_create_shops.sql        # PostgreSQL schema, triggers & RLS policies
+├── types/
+│   ├── database.types.ts                # TypeScript definitions for Supabase tables
+│   └── shop.ts                          # Shop model and registration form types
+├── .env.example                         # Environment variables template
+├── app.json                             # Expo application configuration
+├── package.json                         # Dependencies and npm run scripts
+└── tsconfig.json                        # TypeScript strict compiler configuration
+```
+
+---
+
+## 🗄️ Database Schema & Security
+
+The application uses PostgreSQL hosted on **Supabase** with strict **Row Level Security (RLS)**:
+
+```sql
+-- public.shops table definition
+create table public.shops (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  shop_name text not null,
+  owner_name text not null,
+  email text,
+  mobile text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Fast lookup index
+create index shops_user_id_idx on public.shops(user_id);
+
+-- Row Level Security policies (isolated per authenticated user)
+alter table public.shops enable row level security;
+
+create policy "Users can view their own shop"
+  on public.shops for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+create policy "Users can insert their own shop"
+  on public.shops for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users can update their own shop"
+  on public.shops for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+```
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Prerequisites
+- [Node.js](https://nodejs.org/) (v18 or v20 LTS recommended)
+- [Expo Go app](https://expo.dev/go) installed on your Android device or iPhone
+- A [Supabase](https://supabase.com) account and project
+
+### 2. Clone Repository & Install Dependencies
+```bash
+git clone https://github.com/MdSaifAli063/Daily-Expenses-Mobile-App.git
+cd "Daily Expenses App"
+
+# Install dependencies (use --legacy-peer-deps for React 19 compatibility)
+npm install --legacy-peer-deps
+```
+
+### 3. Setup Environment Variables
+Create a `.env` file in the root directory:
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
+```
+
+### 4. Run the Database Migration
+1. Log in to the [Supabase Dashboard](https://supabase.com/dashboard).
+2. Select your project and navigate to the **SQL Editor** tab.
+3. Open `supabase/migrations/0001_create_shops.sql`, copy its entire content, and paste it into the editor.
+4. Click **Run**. Verify that the `shops` table and policies are successfully created.
+
+---
+
+## 🏃 Running the Application
+
+Start the Expo development server with cache cleared:
+```bash
+npx expo start -c
+```
+
+- **Run on Android / iOS (Expo Go)**:
+  - Scan the terminal QR code using the **Expo Go** app on your physical mobile device.
+  - Both your computer and mobile phone must be connected to the same Wi-Fi network.
+- **Run in Web Browser**:
+  - Press `w` in the terminal or run `npm run web`.
+
+---
+
+## 🗺️ What's Next (Upcoming Roadmap)
+
+- **Phase 5: Daily Transactions & Expense Entry Form**
+  - Interactive Modal / Bottom Sheet triggered by the `+` FAB.
+  - Fields for Amount, Category, Payment Mode (Cash, UPI, Credit/Udhar), and Notes/Remarks.
+  - Creation of `public.expenses` and `public.daily_collections` tables in Supabase with RLS.
+- **Phase 6: Daily Entries Log & Category Breakdown**
+  - Filterable list of all daily transactions.
+  - Category management (Wholesale Stock, Utilities, Wages, Rent, Tea/Snacks, Miscellaneous).
+- **Phase 7: Reports & Data Export**
+  - Weekly and monthly profit/cash-flow charts.
+  - PDF and Excel export for ledger records.
