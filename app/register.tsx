@@ -21,8 +21,8 @@ import { useAuth } from '../context/AuthContext';
 interface FormErrors {
   shopName?: string;
   ownerName?: string;
-  email?: string;
   mobile?: string;
+  email?: string;
   password?: string;
   confirmPassword?: string;
 }
@@ -35,8 +35,8 @@ export default function RegisterScreen() {
   // Form field state
   const [shopName, setShopName] = useState('');
   const [ownerName, setOwnerName] = useState('');
-  const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -62,22 +62,19 @@ export default function RegisterScreen() {
       newErrors.ownerName = 'Owner name is required';
     }
 
-    // 3. Email (now REQUIRED for Supabase Auth)
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      newErrors.email = 'Email address is required';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmedEmail)) {
-        newErrors.email = 'Please enter a valid email address';
-      }
+    // 3. Mobile number (REQUIRED for shopkeeper account)
+    const cleanMobile = mobile.replace(/\D/g, '');
+    if (!cleanMobile) {
+      newErrors.mobile = 'Mobile number is required';
+    } else if (cleanMobile.length < 10) {
+      newErrors.mobile = 'Please enter a valid 10-digit mobile number';
     }
 
-    // 4. Mobile (optional, but validate format if entered)
-    if (mobile.trim()) {
-      const phoneRegex = /^[0-9+\-\s()]{7,15}$/;
-      if (!phoneRegex.test(mobile.trim())) {
-        newErrors.mobile = 'Please enter a valid mobile number';
+    // 4. Email (optional)
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        newErrors.email = 'Please enter a valid email address';
       }
     }
 
@@ -111,11 +108,11 @@ export default function RegisterScreen() {
 
     try {
       const { session, needsEmailConfirmation, error } = await signUp({
-        email: email.trim().toLowerCase(),
+        mobile: mobile.trim(),
         password,
         shopName: shopName.trim(),
         ownerName: ownerName.trim(),
-        mobile: mobile.trim() || undefined,
+        email: email.trim() || undefined,
       });
 
       if (error) {
@@ -124,16 +121,16 @@ export default function RegisterScreen() {
         return;
       }
 
-      // Case B: Registration succeeded but email confirmation is required
+      // If email confirmation is required by Supabase project settings
       if (needsEmailConfirmation) {
         setConfirmationMessage(
-          'Account created! Please check your email inbox to confirm your account, then sign in.'
+          'Account registered! Please sign in with your mobile number and password.'
         );
         setIsSubmitting(false);
         return;
       }
 
-      // Case A: Active session available immediately
+      // Immediate active session
       if (session) {
         router.replace('/home');
       }
@@ -201,7 +198,7 @@ export default function RegisterScreen() {
                 </View>
               )}
 
-              {/* Email Confirmation Notice */}
+              {/* Confirmation Notice */}
               {confirmationMessage && (
                 <View style={styles.successBanner}>
                   <Text style={styles.successBannerText}>{confirmationMessage}</Text>
@@ -232,15 +229,32 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* 3. Email Field (Now Required for Supabase) */}
+              {/* 3. Mobile Number Field (Required for Login) */}
+              <View style={styles.fieldSpacer}>
+                <Input
+                  label="Mobile number"
+                  required
+                  value={mobile}
+                  onChangeText={handleFieldChange('mobile', setMobile)}
+                  helperText="Used to log in to your account"
+                  error={errors.mobile}
+                  placeholder="10-digit mobile number"
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
+                  returnKeyType="next"
+                />
+              </View>
+
+              {/* 4. Email Field (Optional) */}
               <View style={styles.fieldSpacer}>
                 <Input
                   label="Email"
-                  required
                   value={email}
                   onChangeText={handleFieldChange('email', setEmail)}
-                  helperText="Recommended for account recovery"
+                  helperText="Optional for reports & recovery"
                   error={errors.email}
+                  placeholder="Optional email"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
@@ -249,22 +263,7 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* 4. Mobile Field */}
-              <View style={styles.fieldSpacer}>
-                <Input
-                  label="Mobile"
-                  value={mobile}
-                  onChangeText={handleFieldChange('mobile', setMobile)}
-                  helperText="Optional"
-                  error={errors.mobile}
-                  keyboardType="phone-pad"
-                  autoComplete="tel"
-                  textContentType="telephoneNumber"
-                  returnKeyType="next"
-                />
-              </View>
-
-              {/* 5. Password Field with Independent Eye Toggle */}
+              {/* 5. Password Field */}
               <View style={styles.fieldSpacer}>
                 <PasswordInput
                   label="Password"
@@ -278,7 +277,7 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* 6. Confirm Password Field with Independent Eye Toggle */}
+              {/* 6. Confirm Password Field */}
               <View style={styles.fieldSpacer}>
                 <PasswordInput
                   label="Confirm password"
@@ -293,7 +292,7 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* Create Account Primary Button with Loading State */}
+              {/* Create Account Primary Button */}
               <View style={styles.buttonSpacer}>
                 <PrimaryButton
                   title="Create account"
