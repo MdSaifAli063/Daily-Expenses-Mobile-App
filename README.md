@@ -1,12 +1,12 @@
-# 📒 Daily Expenses / Shop Ledger Mobile App
+# 📒 Dailydoubt — Daily Expenses & Shop Ledger Mobile App
 
-> A digital **Bahi-Khata (Shop Ledger)** mobile application crafted for small business owners and shopkeepers. Features an authentic warm ruled-paper aesthetic, secure **Supabase Authentication**, and PostgreSQL database with **Row Level Security (RLS)**.
+> A digital **Bahi-Khata (Shop Ledger)** mobile application crafted for small business owners and shopkeepers under the official brand **Dailydoubt**. Features an authentic warm ruled-paper aesthetic, secure **Supabase Authentication**, and PostgreSQL database with **Row Level Security (RLS)**.
 
 ---
 
 ## 📱 Project Overview
 
-The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo SDK 57**, and **TypeScript**, connected directly to **Supabase** backend services (Auth + PostgreSQL + Storage). It eliminates the need for an intermediate Node.js/Express.js server, delivering real-time performance, client-side encryption, and strict data isolation per shop.
+**Dailydoubt** is built with **React Native**, **Expo SDK 57**, and **TypeScript**, connected directly to **Supabase** backend services (Auth + PostgreSQL + Storage). It eliminates the need for an intermediate Node.js/Express.js server, delivering real-time performance, client-side encryption, and strict data isolation per shop.
 
 ---
 
@@ -207,11 +207,33 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
   - Zero database queries, purely presentational.
 - **Welcome Screen Design & Aesthetics (`app/welcome.tsx`)**:
   - Warm ruled ledger background (`LedgerBackground`).
-  - Brand header: `DAILY EXPENSES` in uppercase letterspaced teal.
+  - Brand header: `DAILYDOUBT` in uppercase letterspaced teal.
   - Headline: `Your shop. Your numbers. In one place.` in elegant Georgia/serif typography.
   - Subtitle: `Track collections, expenses and profits effortlessly.`
   - Smooth 450ms entrance animation (fade + gentle slide) on mount.
   - Footer trust line: `Simple. Private. Built for your shop.`
+
+### ✅ Phase 10: Production Readiness, Branding (Dailydoubt) & EAS Build Configuration
+- **Official App Branding**:
+  - App Name: **Dailydoubt**
+  - Project Slug: `dailydoubt`
+  - Android Package: `com.softtrickscode.dailydoubt`
+  - Version: `1.0.0` (versionCode: `1`)
+- **App Icon & Splash Assets (`assets/`)**:
+  - `icon.png`: 1024×1024 high-res icon featuring the gold-rimmed deep green ledger with embossed rupee symbol `₹`, growth chart, coins, and question mark doubt badge.
+  - `adaptive-icon.png`: 1024×1024 adaptive icon centered in the 66% Android safe zone on `#15211B` background.
+  - `splash.png`: Centered brand artwork on warm pale ledger paper `#F4F6F0`.
+  - `favicon.png`: Web favicon.
+- **EAS Build Configuration (`eas.json`)**:
+  - `development`: Internal development client workflow.
+  - `preview`: Generates standalone installable **Android APK** (`buildType: "apk"`) for direct physical device testing.
+  - `production`: Generates Google Play Store **Android App Bundle (.aab)** (`buildType: "app-bundle"` with `autoIncrement: true`).
+- **Android Permissions Minimization**:
+  - Strictly limited to `INTERNET`. Zero sensitive permissions requested (no storage, camera, contacts, microphone, or location).
+- **Security & RLS Audit**:
+  - Verified 100% user-scoped Row Level Security on `shops`, `daily_entries`, `other_expenses`, and `report_exports`.
+  - Verified private Supabase Storage bucket `report-exports` with folder-level isolation (`auth.uid()`).
+  - Verified zero exposed service-role keys or localhost URLs.
 
 ---
 
@@ -227,6 +249,11 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
 
 ```
 d:/Daily Expenses App/
+├── assets/                              # High-resolution production assets (Phase 10)
+│   ├── adaptive-icon.png                # Android adaptive icon foreground (1024x1024)
+│   ├── favicon.png                      # Web browser favicon
+│   ├── icon.png                         # Google Play & launcher master icon (1024x1024)
+│   └── splash.png                       # Splash screen on warm ledger background
 ├── app/                                 # Expo Router (File-based navigation)
 │   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
 │   ├── welcome.tsx                      # First Screen / Welcome Screen (Phase 9)
@@ -282,7 +309,8 @@ d:/Daily Expenses App/
 │   ├── entryCalculations.ts             # Financial calculations & currency formatting
 │   └── reportCalculations.ts            # Date range builders & report summary aggregations
 ├── .env.example                         # Environment variables template
-├── app.json                             # Expo application configuration
+├── app.json                             # Expo application configuration (Dailydoubt)
+├── eas.json                             # EAS Build profiles (preview APK & production AAB)
 ├── package.json                         # Dependencies and npm run scripts
 └── tsconfig.json                        # TypeScript strict compiler configuration
 ```
@@ -401,4 +429,25 @@ npx expo start -c
   - Both your computer and mobile phone must be connected to the same Wi-Fi network.
 - **Run in Web Browser**:
   - Press `w` in the terminal or run `npm run web`.
+
+---
+
+## 📦 Building Standalone APK & Production AAB (EAS Build)
+
+### 1. Install EAS CLI & Login
+```bash
+npm install --global eas-cli
+eas login
+```
+
+### 2. Build Testing Android APK (For Direct Physical Device Installation)
+```bash
+eas build --platform android --profile preview
+```
+
+### 3. Build Production Android App Bundle (.aab) (For Google Play Store Release)
+```bash
+eas build --platform android --profile production
+```
+
 
