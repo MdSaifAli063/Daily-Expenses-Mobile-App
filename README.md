@@ -258,6 +258,7 @@ d:/Daily Expenses App/
 │   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
 │   ├── welcome.tsx                      # First Screen / Welcome Screen (Phase 9)
 │   ├── index.tsx                        # Login Screen (Phase 1)
+│   ├── forgot-password.tsx              # Password Recovery Screen (Shop Verification & OTP)
 │   ├── register.tsx                     # Shop Registration Screen (Phase 2)
 │   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3, 5, 6, 8)
 │   ├── entries.tsx                      # Entries History Screen (Phase 6)
@@ -299,7 +300,8 @@ d:/Daily Expenses App/
 │       ├── 0001_create_shops.sql        # Phase 4: shops table & RLS
 │       ├── 0002_daily_entry_system.sql  # Phase 5: daily_entries, other_expenses, RPC
 │       ├── 0003_category_support.sql    # Phase 5: other_expenses category support
-│       └── 0004_reports.sql             # Phase 7: report_exports table, storage bucket & RLS
+│       ├── 0004_reports.sql             # Phase 7: report_exports table, storage bucket & RLS
+│       └── 0005_forgot_password.sql     # Password recovery: shop verification & pgcrypto RPC
 ├── types/
 │   ├── database.types.ts                # TypeScript definitions for Supabase tables
 │   ├── dailyEntry.ts                    # Daily entry & other expenses models
@@ -413,6 +415,7 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
    - `supabase/migrations/0002_daily_entry_system.sql`
    - `supabase/migrations/0003_category_support.sql`
    - `supabase/migrations/0004_reports.sql`
+   - `supabase/migrations/0005_forgot_password.sql`
 4. Verify that all tables, RLS policies, and the `report-exports` storage bucket are created.
 
 ---
