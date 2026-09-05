@@ -87,7 +87,7 @@ export default function ProfileScreen() {
               if (signOutError) {
                 Alert.alert('Logout Failed', signOutError.message);
               } else {
-                router.replace('/');
+                router.replace('/welcome');
               }
             } catch (err: unknown) {
               console.error('[ProfileScreen] Logout error:', err);
