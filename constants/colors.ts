@@ -52,6 +52,13 @@ export const Colors = {
 
   // Icons
   iconMuted: '#74887E',
+
+  // Warm Shop Ledger Palette
+  terracotta: '#C84B31',
+  parchment: '#FAF5EB',
+  ledgerBrown: '#2D241E',
+  warmGray: '#8C7B6E',
+  emeraldGreen: '#2E7D32',
 } as const;
 
 export type ColorKeys = keyof typeof Colors;

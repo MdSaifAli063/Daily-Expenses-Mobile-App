@@ -92,64 +92,77 @@ export default function HomeScreen() {
     };
   }, [user]);
 
-  // Refresh home data on focus (today entry, monthly totals, recent entries)
+  // Refresh home data on focus (shop profile, today entry, monthly totals, recent entries)
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      if (!shop?.id) return;
+      if (!user?.id) return;
 
-      // 1. Fetch today's entry
-      setLoadingTodayEntry(true);
-      dailyEntryService
-        .getEntryByDate(todayDateStr, shop.id)
-        .then(({ data }) => {
-          if (isMounted) {
-            setTodayEntry(data);
-          }
-        })
-        .catch((err) => {
-          console.error('[HomeScreen] Error fetching today entry:', err);
-        })
-        .finally(() => {
-          if (isMounted) setLoadingTodayEntry(false);
-        });
+      const refreshHomeData = async () => {
+        // 0. Refresh shop profile
+        const { data: refreshedShop } = await shopService.getCurrentShop(user.id);
+        if (isMounted && refreshedShop) {
+          setShop(refreshedShop);
+        }
 
-      // 2. Fetch current month's summary
-      setLoadingMonthSummary(true);
-      dailyEntryService
-        .getMonthSummary(today.getFullYear(), today.getMonth() + 1, shop.id)
-        .then(({ data }) => {
-          if (isMounted && data) {
-            setMonthSummary(data);
-          }
-        })
-        .catch((err) => {
-          console.error('[HomeScreen] Error fetching month summary:', err);
-        })
-        .finally(() => {
-          if (isMounted) setLoadingMonthSummary(false);
-        });
+        const activeShopId = refreshedShop?.id || shop?.id;
+        if (!activeShopId) return;
 
-      // 3. Fetch recent 5 entries
-      setLoadingRecentEntries(true);
-      dailyEntryService
-        .getRecentEntries(5, shop.id)
-        .then(({ data }) => {
-          if (isMounted && data) {
-            setRecentEntries(data);
-          }
-        })
-        .catch((err) => {
-          console.error('[HomeScreen] Error fetching recent entries:', err);
-        })
-        .finally(() => {
-          if (isMounted) setLoadingRecentEntries(false);
-        });
+        // 1. Fetch today's entry
+        setLoadingTodayEntry(true);
+        dailyEntryService
+          .getEntryByDate(todayDateStr, activeShopId)
+          .then(({ data }) => {
+            if (isMounted) {
+              setTodayEntry(data);
+            }
+          })
+          .catch((err) => {
+            console.error('[HomeScreen] Error fetching today entry:', err);
+          })
+          .finally(() => {
+            if (isMounted) setLoadingTodayEntry(false);
+          });
+
+        // 2. Fetch current month's summary
+        setLoadingMonthSummary(true);
+        dailyEntryService
+          .getMonthSummary(today.getFullYear(), today.getMonth() + 1, activeShopId)
+          .then(({ data }) => {
+            if (isMounted && data) {
+              setMonthSummary(data);
+            }
+          })
+          .catch((err) => {
+            console.error('[HomeScreen] Error fetching month summary:', err);
+          })
+          .finally(() => {
+            if (isMounted) setLoadingMonthSummary(false);
+          });
+
+        // 3. Fetch recent 5 entries
+        setLoadingRecentEntries(true);
+        dailyEntryService
+          .getRecentEntries(5, activeShopId)
+          .then(({ data }) => {
+            if (isMounted && data) {
+              setRecentEntries(data);
+            }
+          })
+          .catch((err) => {
+            console.error('[HomeScreen] Error fetching recent entries:', err);
+          })
+          .finally(() => {
+            if (isMounted) setLoadingRecentEntries(false);
+          });
+      };
+
+      refreshHomeData();
 
       return () => {
         isMounted = false;
       };
-    }, [shop?.id, todayDateStr])
+    }, [user?.id, shop?.id, todayDateStr])
   );
 
   // Navigation handlers
@@ -178,6 +191,10 @@ export default function HomeScreen() {
     router.push('/entries');
   };
 
+  const handleOpenReports = () => {
+    router.push('/reports');
+  };
+
   const handleTabPress = async (tab: string) => {
     if (tab === 'entries') {
       router.push('/entries');
@@ -187,17 +204,8 @@ export default function HomeScreen() {
       router.push('/reports');
       return;
     }
-    if (tab === 'logout') {
-      if (isLoggingOut) return;
-      setIsLoggingOut(true);
-      try {
-        await signOut();
-        router.replace('/');
-      } catch (err) {
-        console.error('[HomeScreen] Logout error:', err);
-      } finally {
-        setIsLoggingOut(false);
-      }
+    if (tab === 'profile') {
+      router.push('/profile');
       return;
     }
   };
@@ -278,7 +286,7 @@ export default function HomeScreen() {
                   }`
                 : '0 holidays'
             }
-            onFullReport={handleSeeAllEntries}
+            onFullReport={handleOpenReports}
           />
         </View>
 

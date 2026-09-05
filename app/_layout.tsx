@@ -17,10 +17,9 @@ function RootNavigation() {
 
     const currentSegment = segments[0] as string | undefined;
     const inAuthGroup = !currentSegment || currentSegment === 'register';
-    const isProtected = currentSegment === 'home';
 
-    if (!session && isProtected) {
-      // Unauthenticated user trying to access /home -> redirect to Login /
+    if (!session && !inAuthGroup) {
+      // Unauthenticated user trying to access protected screens -> redirect to Login /
       router.replace('/');
     } else if (session && inAuthGroup) {
       // Authenticated user trying to access / or /register -> redirect to /home

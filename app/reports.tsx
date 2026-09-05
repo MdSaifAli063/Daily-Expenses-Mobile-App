@@ -219,17 +219,8 @@ export default function ReportsScreen() {
       // Already on reports
       return;
     }
-    if (tab === 'logout') {
-      if (isLoggingOut) return;
-      setIsLoggingOut(true);
-      try {
-        await signOut();
-        router.replace('/');
-      } catch (err) {
-        console.error('[ReportsScreen] Logout error:', err);
-      } finally {
-        setIsLoggingOut(false);
-      }
+    if (tab === 'profile') {
+      router.push('/profile');
       return;
     }
   };
