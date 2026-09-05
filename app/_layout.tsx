@@ -11,19 +11,32 @@ function RootNavigation() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const initialLaunchHandled = React.useRef(false);
 
   useEffect(() => {
     if (loading) return;
 
     const currentSegment = segments[0] as string | undefined;
-    const inAuthGroup = !currentSegment || currentSegment === 'register';
+    const isPublicRoute =
+      currentSegment === 'welcome' ||
+      !currentSegment ||
+      currentSegment === 'register';
 
-    if (!session && !inAuthGroup) {
-      // Unauthenticated user trying to access protected screens -> redirect to Login /
-      router.replace('/');
-    } else if (session && inAuthGroup) {
-      // Authenticated user trying to access / or /register -> redirect to /home
-      router.replace('/home');
+    if (session) {
+      // Authenticated user trying to access public screens (/welcome, /, /register) -> redirect to /home
+      if (isPublicRoute) {
+        router.replace('/home');
+      }
+    } else {
+      // Unauthenticated user
+      if (!initialLaunchHandled.current && !currentSegment) {
+        // Cold start at root / -> redirect to /welcome
+        initialLaunchHandled.current = true;
+        router.replace('/welcome');
+      } else if (!isPublicRoute) {
+        // Unauthenticated user trying to access protected screens -> redirect to /welcome
+        router.replace('/welcome');
+      }
     }
   }, [session, loading, segments, router]);
 

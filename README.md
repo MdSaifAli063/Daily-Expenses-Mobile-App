@@ -189,7 +189,29 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
   - Centralizes profile fetch and update queries with type-safe payloads.
   - Zero changes to existing phone-number authentication.
 - **Route Guard Protection (`app/_layout.tsx`)**:
-  - Enforces strict route guarding: all non-auth routes redirect unauthenticated users to `/`.
+  - Enforces strict route guarding: all non-auth routes redirect unauthenticated users to `/welcome`.
+
+### ✅ Phase 9: Professional First Screen / Welcome Screen (`app/welcome.tsx`)
+- **Initial App Launch & Navigation Flow**:
+  - **Welcome Screen** (`app/welcome.tsx`): Displays on initial unauthenticated app launch.
+  - **Get Started**: Prominent button smoothly transitioning to the Login screen (`/`).
+  - **Auto-Hydration**: Existing users with active Supabase sessions bypass Welcome and Login, navigating directly to `/home`.
+  - **Logout Flow**: Logging out from Profile automatically redirects to `/welcome`.
+  - **Protected Routes**: Unauthenticated access attempts to `/home`, `/entries`, etc. are safely bounced to `/welcome`.
+- **Custom Brand Logo Mark (`components/WelcomeLogo.tsx`)**:
+  - 100% native vector design using React Native Views and `Ionicons`. Zero external image dependencies.
+  - Dark teal-green rounded badge (`Colors.accentGreen`) with subtle elevation, inner ring, and crisp white ledger/receipt emblem.
+- **Decorative Finance Illustration (`components/WelcomeFinanceIllustration.tsx`)**:
+  - Decorative summary preview card matching the shop ledger notebook aesthetic.
+  - Displays static sample metrics: Collection (`+₹2,000`), Expenses (`-₹1,100`), and Net Profit (`+₹900`) with an upward trend indicator badge.
+  - Zero database queries, purely presentational.
+- **Welcome Screen Design & Aesthetics (`app/welcome.tsx`)**:
+  - Warm ruled ledger background (`LedgerBackground`).
+  - Brand header: `DAILY EXPENSES` in uppercase letterspaced teal.
+  - Headline: `Your shop. Your numbers. In one place.` in elegant Georgia/serif typography.
+  - Subtitle: `Track collections, expenses and profits effortlessly.`
+  - Smooth 450ms entrance animation (fade + gentle slide) on mount.
+  - Footer trust line: `Simple. Private. Built for your shop.`
 
 ---
 
@@ -207,6 +229,7 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
 d:/Daily Expenses App/
 ├── app/                                 # Expo Router (File-based navigation)
 │   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
+│   ├── welcome.tsx                      # First Screen / Welcome Screen (Phase 9)
 │   ├── index.tsx                        # Login Screen (Phase 1)
 │   ├── register.tsx                     # Shop Registration Screen (Phase 2)
 │   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3, 5, 6, 8)
@@ -230,7 +253,9 @@ d:/Daily Expenses App/
 │   ├── ReportFilterTabs.tsx             # Segmented period tabs (Day, Week, Month, Custom)
 │   ├── ReportPeriodSelector.tsx         # Sub-period selector and custom date inputs
 │   ├── ReportSummaryCard.tsx            # Comprehensive financial summary card
-│   └── TodayEntryCard.tsx               # Torn-paper receipt card with live entry state
+│   ├── TodayEntryCard.tsx               # Torn-paper receipt card with live entry state
+│   ├── WelcomeFinanceIllustration.tsx   # Welcome screen financial summary illustration (Phase 9)
+│   └── WelcomeLogo.tsx                  # Daily Expenses brand mark badge (Phase 9)
 ├── constants/
 │   └── colors.ts                        # Master theme design tokens & financial colors
 ├── context/
