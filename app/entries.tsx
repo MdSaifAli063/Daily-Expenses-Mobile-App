@@ -172,6 +172,10 @@ export default function EntriesScreen() {
       // Already on entries screen
       return;
     }
+    if (tab === 'reports') {
+      router.push('/reports');
+      return;
+    }
     if (tab === 'logout') {
       if (isLoggingOut) return;
       setIsLoggingOut(true);

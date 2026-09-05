@@ -129,11 +129,46 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
   - Unified formulas and Indian number formatting (`formatCurrency`).
 
 
+### ✅ Phase 7: Complete Reports Module & Data Export (`app/reports.tsx`)
+- **Reports Screen & Reference Layout**:
+  - Warm ledger header with Shop Name, Owner Name, and stylized "Reports" badge.
+  - **Period Filter Tabs**: Segmented tabs for `Day`, `Week` (default), `Month`, and `Custom`.
+  - **Sub-Period Selectors**:
+    - Day tab: `This day` / `Previous day`.
+    - Week tab: `This week` / `Last week` (Monday to Sunday calculation).
+    - Month tab: `This month` / `Last month`.
+    - Custom tab: Interactive start and end date pickers using `DatePickerModal`.
+  - Half-open boundary date filtering: `entry_date >= startDate AND entry_date < nextDayAfterEnd`.
+- **Financial Report Summary Card (`components/ReportSummaryCard.tsx`)**:
+  - Total Collection (`+₹` in emerald green).
+  - Business Expense (`-₹` in terracotta red).
+  - Home Expense (`-₹` in amber).
+  - Total Cash Outflow (`-₹`).
+  - Net Business Profit (with positive green / negative red indicator).
+  - Average Daily Collection.
+  - Working days and holiday count badges.
+- **Data Exporting (PDF & Excel)**:
+  - **Download PDF**: Generates branded, styled HTML document via `expo-print`, saved locally, uploaded to Supabase Storage, recorded in `public.report_exports`, and opened in system share sheet (`expo-sharing`).
+  - **Download Excel**: Creates multi-tab workbook (`Summary`, `Day-by-Day Entries`, `Expense Breakdown`) via `xlsx` and `expo-file-system/legacy`, uploaded to Supabase Storage, recorded in `public.report_exports`, and opened in system share sheet.
+- **Categorized Expense Breakdown (`components/ExpenseBreakdownList.tsx`)**:
+  - Aggregates and lists all `other_expenses` for the selected period with category badges.
+  - Empty state with notebook icon when no expenses exist.
+- **Day-by-Day Entry Cards**:
+  - Chronological list of daily entries within the selected period.
+  - Displays formatted date, day of week, and profit amount with chevron arrow.
+  - Tapping any entry navigates directly to Entry Detail (`/entry/[id]`).
+- **Supabase Backend Schema & Storage**:
+  - `public.report_exports` audit table tracking all generated reports (format, report type, date range, storage path, file size).
+  - Private Supabase Storage bucket `report-exports` with strict per-user RLS policies.
+  - Migration script: `supabase/migrations/0004_reports.sql`.
+
+---
+
 ### ✅ System & Platform Upgrades: Expo SDK 57
 - Upgraded the codebase to **Expo SDK 57** (`expo@57.0.20`, `react@19.2.3`, `react-native@0.86.3`) to ensure full compatibility with the latest Expo Go client.
 - Fixed React Native 0.86+ styling deprecations (migrated `StyleSheet.absoluteFillObject` to explicit position coordinates in `LedgerBackground.tsx`).
 - Enabled cross-platform web support via `react-native-web` and `react-dom`.
-- Verified 100% type safety (`npx tsc --noEmit` passes with 0 errors).
+- Verified 100% type safety (`npx tsc --noEmit` passes with 0 errors) and Android production export (`npx expo export --platform android --no-bytecode` passes with 0 errors).
 
 ---
 
@@ -145,16 +180,25 @@ d:/Daily Expenses App/
 │   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
 │   ├── index.tsx                        # Login Screen (Phase 1)
 │   ├── register.tsx                     # Shop Registration Screen (Phase 2)
-│   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3 & 5)
-│   └── add-entry.tsx                    # Add / Edit Daily Entry Screen (Phase 5)
+│   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3, 5, 6)
+│   ├── entries.tsx                      # Entries History Screen (Phase 6)
+│   ├── reports.tsx                      # Reports & Analytics Screen (Phase 7)
+│   ├── entry/
+│   │   └── [id].tsx                     # Entry Detail Screen (Phase 6)
+│   └── add-entry.tsx                    # Add / Edit Daily Entry Screen (Phase 5, 6)
 ├── components/                          # Reusable UI Components
 │   ├── BottomNavigation.tsx             # Fixed tab bar with center floating '+' FAB
 │   ├── DatePickerModal.tsx              # Cross-platform date picker (Android/iOS/Web)
+│   ├── EntryListCard.tsx                # Day entry card with date and profit
+│   ├── ExpenseBreakdownList.tsx         # Categorized expenses with badges
 │   ├── Input.tsx                        # Themed text input with validation styling
 │   ├── LedgerBackground.tsx             # Ruled notebook line background generator
 │   ├── MonthlySummaryCard.tsx           # Monthly analytics & breakdown progress bar
 │   ├── PasswordInput.tsx                # Secure password field with eye icon toggle
 │   ├── PrimaryButton.tsx                # Terracotta action button with loading state
+│   ├── ReportFilterTabs.tsx             # Segmented period tabs (Day, Week, Month, Custom)
+│   ├── ReportPeriodSelector.tsx         # Sub-period selector and custom date inputs
+│   ├── ReportSummaryCard.tsx            # Comprehensive financial summary card
 │   └── TodayEntryCard.tsx               # Torn-paper receipt card with live entry state
 ├── constants/
 │   └── colors.ts                        # Master theme design tokens & financial colors
@@ -164,15 +208,22 @@ d:/Daily Expenses App/
 │   └── supabase.ts                      # Supabase client singleton with AsyncStorage
 ├── services/
 │   ├── dailyEntryService.ts             # Supabase operations for daily entries & expenses
+│   ├── reportService.ts                 # Report aggregation, PDF/Excel generation & export tracking
 │   └── shopService.ts                   # Supabase DB operations for `public.shops`
 ├── supabase/
 │   └── migrations/
 │       ├── 0001_create_shops.sql        # Phase 4: shops table & RLS
-│       └── 0002_daily_entry_system.sql  # Phase 5: daily_entries, other_expenses, RPC
+│       ├── 0002_daily_entry_system.sql  # Phase 5: daily_entries, other_expenses, RPC
+│       ├── 0003_category_support.sql    # Phase 5: other_expenses category support
+│       └── 0004_reports.sql             # Phase 7: report_exports table, storage bucket & RLS
 ├── types/
 │   ├── database.types.ts                # TypeScript definitions for Supabase tables
 │   ├── dailyEntry.ts                    # Daily entry & other expenses models
+│   ├── report.ts                        # Report period, summary, day entry & export types
 │   └── shop.ts                          # Shop model and registration form types
+├── utils/
+│   ├── entryCalculations.ts             # Financial calculations & currency formatting
+│   └── reportCalculations.ts            # Date range builders & report summary aggregations
 ├── .env.example                         # Environment variables template
 ├── app.json                             # Expo application configuration
 ├── package.json                         # Dependencies and npm run scripts
@@ -197,25 +248,6 @@ create table public.shops (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
--- Fast lookup index
-create index shops_user_id_idx on public.shops(user_id);
-
--- Row Level Security policies (isolated per authenticated user)
-alter table public.shops enable row level security;
-
-create policy "Users can view their own shop"
-  on public.shops for select to authenticated
-  using ((select auth.uid()) = user_id);
-
-create policy "Users can insert their own shop"
-  on public.shops for insert to authenticated
-  with check ((select auth.uid()) = user_id);
-
-create policy "Users can update their own shop"
-  on public.shops for update to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
 
 -- public.daily_entries table (Phase 5)
 create table public.daily_entries (
@@ -242,8 +274,24 @@ create table public.other_expenses (
   user_id uuid not null references auth.users(id) on delete cascade,
   expense_name text not null check (length(trim(expense_name)) > 0),
   amount numeric(12,2) not null default 0 check (amount >= 0),
+  category text not null default 'Business',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- public.report_exports table (Phase 7)
+create table public.report_exports (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  export_format text not null check (export_format in ('pdf', 'excel')),
+  report_type text not null,
+  start_date date not null,
+  end_date date not null,
+  storage_path text,
+  file_name text not null,
+  file_size_bytes bigint,
+  created_at timestamptz not null default now()
 );
 ```
 
@@ -272,11 +320,15 @@ EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 ```
 
-### 4. Run the Database Migration
+### 4. Run the Database Migrations
 1. Log in to the [Supabase Dashboard](https://supabase.com/dashboard).
 2. Select your project and navigate to the **SQL Editor** tab.
-3. Open `supabase/migrations/0001_create_shops.sql`, copy its entire content, and paste it into the editor.
-4. Click **Run**. Verify that the `shops` table and policies are successfully created.
+3. Run the migrations in sequential order:
+   - `supabase/migrations/0001_create_shops.sql`
+   - `supabase/migrations/0002_daily_entry_system.sql`
+   - `supabase/migrations/0003_category_support.sql`
+   - `supabase/migrations/0004_reports.sql`
+4. Verify that all tables, RLS policies, and the `report-exports` storage bucket are created.
 
 ---
 
@@ -293,17 +345,3 @@ npx expo start -c
 - **Run in Web Browser**:
   - Press `w` in the terminal or run `npm run web`.
 
----
-
-## 🗺️ What's Next (Upcoming Roadmap)
-
-- **Phase 5: Daily Transactions & Expense Entry Form**
-  - Interactive Modal / Bottom Sheet triggered by the `+` FAB.
-  - Fields for Amount, Category, Payment Mode (Cash, UPI, Credit/Udhar), and Notes/Remarks.
-  - Creation of `public.expenses` and `public.daily_collections` tables in Supabase with RLS.
-- **Phase 6: Daily Entries Log & Category Breakdown**
-  - Filterable list of all daily transactions.
-  - Category management (Wholesale Stock, Utilities, Wages, Rent, Tea/Snacks, Miscellaneous).
-- **Phase 7: Reports & Data Export**
-  - Weekly and monthly profit/cash-flow charts.
-  - PDF and Excel export for ledger records.

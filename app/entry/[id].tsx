@@ -131,6 +131,10 @@ export default function EntryDetailScreen() {
       router.replace('/entries');
       return;
     }
+    if (tab === 'reports') {
+      router.push('/reports');
+      return;
+    }
     if (tab === 'logout') {
       try {
         await signOut();
