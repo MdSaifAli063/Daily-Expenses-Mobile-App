@@ -144,6 +144,60 @@ export interface Database {
           }
         ];
       };
+      report_exports: {
+        Row: {
+          id: string;
+          user_id: string;
+          shop_id: string;
+          report_type: 'day' | 'week' | 'month' | 'custom';
+          start_date: string;
+          end_date: string;
+          file_type: 'pdf' | 'xlsx';
+          storage_path: string;
+          file_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          shop_id: string;
+          report_type: 'day' | 'week' | 'month' | 'custom';
+          start_date: string;
+          end_date: string;
+          file_type: 'pdf' | 'xlsx';
+          storage_path: string;
+          file_name: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          shop_id?: string;
+          report_type?: 'day' | 'week' | 'month' | 'custom';
+          start_date?: string;
+          end_date?: string;
+          file_type?: 'pdf' | 'xlsx';
+          storage_path?: string;
+          file_name?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'report_exports_shop_id_fkey';
+            columns: ['shop_id'];
+            isOneToOne: false;
+            referencedRelation: 'shops';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'report_exports_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
