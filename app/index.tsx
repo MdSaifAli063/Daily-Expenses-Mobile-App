@@ -144,6 +144,18 @@ export default function LoginScreen() {
                 />
               </View>
 
+              {/* Forgot Password Link */}
+              <View style={styles.forgotPasswordRow}>
+                <Pressable
+                  onPress={() => router.push('/forgot-password')}
+                  hitSlop={8}
+                  accessibilityRole="link"
+                  accessibilityLabel="Forgot password?"
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                </Pressable>
+              </View>
+
               {/* Sign In Button with Supabase Loading State */}
               <View style={styles.buttonSpacer}>
                 <PrimaryButton
@@ -238,8 +250,18 @@ const styles = StyleSheet.create({
   fieldSpacer: {
     marginTop: 18,
   },
+  forgotPasswordRow: {
+    alignItems: 'flex-end',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.accentGreen,
+  },
   buttonSpacer: {
-    marginTop: 22,
+    marginTop: 16,
   },
   registerContainer: {
     flexDirection: 'row',

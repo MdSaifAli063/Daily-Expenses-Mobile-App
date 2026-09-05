@@ -20,7 +20,8 @@ function RootNavigation() {
     const isPublicRoute =
       currentSegment === 'welcome' ||
       !currentSegment ||
-      currentSegment === 'register';
+      currentSegment === 'register' ||
+      currentSegment === 'forgot-password';
 
     if (session) {
       // Authenticated user trying to access public screens (/welcome, /, /register) -> redirect to /home

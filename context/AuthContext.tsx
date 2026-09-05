@@ -22,6 +22,18 @@ export interface SignUpParams {
   email?: string;
 }
 
+export interface ResetWithShopVerificationParams {
+  mobile: string;
+  shopOrOwnerName: string;
+  newPassword: string;
+}
+
+export interface ResetWithOtpParams {
+  email: string;
+  token: string;
+  newPassword: string;
+}
+
 export interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -35,6 +47,15 @@ export interface AuthContextType {
   }>;
   signOut: () => Promise<{ error: Error | null }>;
   refreshSession: () => Promise<void>;
+  resetPasswordWithShopVerification: (
+    params: ResetWithShopVerificationParams
+  ) => Promise<{ success: boolean; error: Error | null }>;
+  sendPasswordResetEmail: (
+    mobileOrEmail: string
+  ) => Promise<{ success: boolean; emailSentTo?: string; error: Error | null }>;
+  verifyOtpAndResetPassword: (
+    params: ResetWithOtpParams
+  ) => Promise<{ success: boolean; error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -306,6 +327,156 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const resetPasswordWithShopVerification = useCallback(
+    async ({ mobile, shopOrOwnerName, newPassword }: ResetWithShopVerificationParams) => {
+      try {
+        const digits = mobile.replace(/\D/g, '');
+        const cleanMobile = digits.length > 10 ? digits.slice(-10) : digits;
+
+        if (!cleanMobile || cleanMobile.length < 10) {
+          return { success: false, error: new Error('Please enter a valid 10-digit mobile number.') };
+        }
+
+        const trimmedName = shopOrOwnerName.trim();
+        if (!trimmedName) {
+          return { success: false, error: new Error('Please enter your registered Shop Name or Owner Name.') };
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+          return { success: false, error: new Error('New password must be at least 6 characters.') };
+        }
+
+        const { data, error } = await supabase.rpc('reset_password_with_shop_verification', {
+          p_mobile: cleanMobile,
+          p_shop_verification: trimmedName,
+          p_new_password: newPassword,
+        });
+
+        if (error) {
+          console.error('[AuthContext.resetPasswordWithShopVerification] RPC error:', error);
+          let msg = error.message;
+          if (msg.includes('function') || msg.includes('not found')) {
+            msg = 'Password reset function is being updated. Please try again or contact support.';
+          }
+          return { success: false, error: new Error(msg) };
+        }
+
+        if (data && data.success === false) {
+          return { success: false, error: new Error(data.error || 'Verification failed. Please check your shop details.') };
+        }
+
+        return { success: true, error: null };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Password reset failed. Please try again.';
+        return { success: false, error: new Error(message) };
+      }
+    },
+    []
+  );
+
+  const sendPasswordResetEmail = useCallback(
+    async (mobileOrEmail: string) => {
+      try {
+        const trimmed = mobileOrEmail.trim();
+        if (!trimmed) {
+          return { success: false, error: new Error('Please enter your mobile number or registered email.') };
+        }
+
+        let targetEmail: string;
+
+        if (trimmed.includes('@')) {
+          targetEmail = trimmed.toLowerCase();
+        } else {
+          const digits = trimmed.replace(/\D/g, '');
+          const cleanMobile = digits.length > 10 ? digits.slice(-10) : digits;
+          if (!cleanMobile || cleanMobile.length < 10) {
+            return { success: false, error: new Error('Please enter a valid 10-digit mobile number.') };
+          }
+
+          try {
+            const { data: resolvedEmail } = await supabase.rpc('get_auth_email_for_mobile', {
+              p_mobile: cleanMobile,
+            });
+            if (resolvedEmail && typeof resolvedEmail === 'string') {
+              targetEmail = resolvedEmail;
+            } else {
+              targetEmail = `${cleanMobile}@dailyexpenses.app`;
+            }
+          } catch {
+            targetEmail = `${cleanMobile}@dailyexpenses.app`;
+          }
+        }
+
+        if (targetEmail.endsWith('@dailyexpenses.app') || targetEmail.endsWith('@dailydoubt.app')) {
+          return {
+            success: false,
+            error: new Error(
+              'No external email is associated with this account. Please use the Shop Verification option to reset your password.'
+            ),
+          };
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
+        if (error) {
+          console.error('[AuthContext.sendPasswordResetEmail] Supabase error:', error);
+          return { success: false, error: new Error(error.message) };
+        }
+
+        return { success: true, emailSentTo: targetEmail, error: null };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to send reset email.';
+        return { success: false, error: new Error(message) };
+      }
+    },
+    []
+  );
+
+  const verifyOtpAndResetPassword = useCallback(
+    async ({ email, token, newPassword }: ResetWithOtpParams) => {
+      try {
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanToken = token.trim();
+
+        if (!cleanEmail || !cleanToken) {
+          return { success: false, error: new Error('Please enter the verification code and your email.') };
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+          return { success: false, error: new Error('New password must be at least 6 characters.') };
+        }
+
+        const { data, error: otpError } = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanToken,
+          type: 'recovery',
+        });
+
+        if (otpError || !data.session) {
+          return {
+            success: false,
+            error: new Error(otpError?.message || 'Invalid or expired verification code.'),
+          };
+        }
+
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+
+        if (updateError) {
+          return { success: false, error: new Error(updateError.message) };
+        }
+
+        await supabase.auth.signOut();
+
+        return { success: true, error: null };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to reset password.';
+        return { success: false, error: new Error(message) };
+      }
+    },
+    []
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -316,6 +487,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signOut,
         refreshSession,
+        resetPasswordWithShopVerification,
+        sendPasswordResetEmail,
+        verifyOtpAndResetPassword,
       }}
     >
       {children}
