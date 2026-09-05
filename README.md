@@ -103,6 +103,32 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
   - Direct 10-digit phone number registration and login (`phone@dailyexpenses.app` Supabase bridge).
   - Clean numeric keyboard input and validation.
 
+### ✅ Phase 6: Entries History, Detail, Edit & Delete System
+- **Home Dashboard Enhancements (`app/home.tsx`)**:
+  - Displays today's recorded entry with 4-line financial breakdown (Collection, Business expense, Home expense, Profit) and *"View or edit this entry"* button.
+  - Live monthly summary aggregation from Supabase (Collection, Expense, Profit, working days count, holiday count).
+  - *"Recent entries"* section displaying the latest 5 entries with profit figures and a *"See all"* link navigating to `/entries`.
+  - Focused auto-refresh (`useFocusEffect`) keeping home synchronized after entry modifications.
+- **Entries History Screen (`app/entries.tsx`)**:
+  - Month navigation bar (`← Month Year →`) querying Supabase using efficient date ranges (`>= startOfMonth AND < startOfNextMonth`).
+  - Search bar (`Search notes...`) with real-time, case-insensitive note filtering.
+  - List of `EntryListCard` items showing date, day of week, and profit/loss amounts.
+  - Empty states for no monthly records and no matching search queries.
+  - Native pull-to-refresh (`RefreshControl`).
+  - Active Entries tab in fixed bottom navigation.
+- **Entry Detail Screen (`app/entry/[id].tsx`)**:
+  - Detailed financial breakdown card (Collection, Business expense, Other business expense, Home expense, Other home expense, Profit).
+  - Categorized list of individual other expenses.
+  - Optional notes section.
+  - *"Edit"* button loading entry into `app/add-entry.tsx`.
+  - *"Delete"* button with native confirmation dialog, cascading deletion of associated other expenses, and auto-refresh.
+- **Edit & Collision Handling (`app/add-entry.tsx`)**:
+  - Pre-populates all entry fields via `entryId` parameter.
+  - Safe date collision detection preventing duplicate records for the same shop and date.
+- **Centralized Financial Logic (`utils/entryCalculations.ts`)**:
+  - Unified formulas and Indian number formatting (`formatCurrency`).
+
+
 ### ✅ System & Platform Upgrades: Expo SDK 57
 - Upgraded the codebase to **Expo SDK 57** (`expo@57.0.20`, `react@19.2.3`, `react-native@0.86.3`) to ensure full compatibility with the latest Expo Go client.
 - Fixed React Native 0.86+ styling deprecations (migrated `StyleSheet.absoluteFillObject` to explicit position coordinates in `LedgerBackground.tsx`).

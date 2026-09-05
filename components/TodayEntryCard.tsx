@@ -16,7 +16,10 @@ export interface TodayEntryCardProps {
   onAddEntry?: () => void;
   hasEntry?: boolean;
   collectionAmount?: number;
-  expenseAmount?: number;
+  businessExpenseAmount?: number;
+  homeExpenseAmount?: number;
+  profitAmount?: number;
+  expenseAmount?: number; // legacy fallback
   dayType?: 'working' | 'holiday';
 }
 
@@ -27,13 +30,15 @@ const TOOTH_SIZE = 10;
  * sitting on the ledger notebook, complete with an authentic subtle zig-zag torn paper bottom edge.
  */
 export function TodayEntryCard({
-  dayOfWeek = 'FRIDAY',
-  date = '04 Sept 2026',
+  dayOfWeek = 'SATURDAY',
+  date = '05 Sept 2026',
   emptyMessage = 'No entry recorded for today yet.',
   onAddEntry,
   hasEntry = false,
   collectionAmount = 0,
-  expenseAmount = 0,
+  businessExpenseAmount = 0,
+  homeExpenseAmount = 0,
+  profitAmount = 0,
   dayType = 'working',
 }: TodayEntryCardProps) {
   const [cardWidth, setCardWidth] = useState(0);
@@ -72,28 +77,37 @@ export function TodayEntryCard({
 
         {/* Content depending on entry existence */}
         {hasEntry ? (
-          <View style={styles.recordedContainer}>
-            <View style={styles.metricsRow}>
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Collection</Text>
-                <Text style={styles.incomeValue}>
-                  ₹ {collectionAmount.toLocaleString('en-IN')}
-                </Text>
-              </View>
-              <View style={styles.metricDivider} />
-              <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>Total Expense</Text>
-                <Text style={styles.expenseValue}>
-                  ₹ {expenseAmount.toLocaleString('en-IN')}
-                </Text>
-              </View>
+          <View style={styles.breakdownContainer}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Collection</Text>
+              <Text style={[styles.breakdownValue, styles.collectionValue]}>
+                ₹{collectionAmount.toLocaleString('en-IN')}
+              </Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Business expense</Text>
+              <Text style={[styles.breakdownValue, styles.expenseValue]}>
+                ₹{businessExpenseAmount.toLocaleString('en-IN')}
+              </Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Home expense</Text>
+              <Text style={[styles.breakdownValue, styles.expenseValue]}>
+                ₹{homeExpenseAmount.toLocaleString('en-IN')}
+              </Text>
+            </View>
+            <View style={[styles.breakdownRow, styles.profitRow]}>
+              <Text style={[styles.breakdownLabel, styles.profitLabel]}>Profit</Text>
+              <Text style={[styles.breakdownValue, styles.profitValue]}>
+                ₹{profitAmount.toLocaleString('en-IN')}
+              </Text>
             </View>
           </View>
         ) : (
           <Text style={styles.emptyText}>{emptyMessage}</Text>
         )}
 
-        {/* Compact Action Button */}
+        {/* Action Button */}
         <View style={styles.buttonRow}>
           <Pressable
             style={({ pressed }) => [
@@ -103,10 +117,10 @@ export function TodayEntryCard({
             ]}
             onPress={handlePress}
             accessibilityRole="button"
-            accessibilityLabel={hasEntry ? "Edit today's entry" : "Add today's entry"}
+            accessibilityLabel={hasEntry ? 'View or edit this entry' : "Add today's entry"}
           >
             <Text style={styles.addButtonText}>
-              {hasEntry ? "Edit today's entry" : "Add today's entry"}
+              {hasEntry ? 'View or edit this entry' : "Add today's entry"}
             </Text>
           </Pressable>
         </View>
@@ -166,7 +180,7 @@ const styles = StyleSheet.create({
     color: Colors.accentGreen,
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: Colors.primaryText,
     fontFamily: Platform.select({
@@ -181,49 +195,59 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     marginBottom: 14,
   },
-  recordedContainer: {
-    backgroundColor: '#F7FAF5',
+  breakdownContainer: {
+    backgroundColor: '#F8FAF6',
     borderRadius: 8,
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E8EFE5',
+    gap: 6,
   },
-  metricsRow: {
+  breakdownRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  metricItem: {
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  metricDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#D7E0D3',
-  },
-  metricLabel: {
-    fontSize: 10.5,
-    fontWeight: '500',
+  breakdownLabel: {
+    fontSize: 12.5,
     color: Colors.secondaryText,
-    marginBottom: 2,
+    fontWeight: '500',
   },
-  incomeValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.accentGreen,
+  breakdownValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primaryText,
+  },
+  collectionValue: {
+    color: '#0E5B42',
   },
   expenseValue: {
-    fontSize: 14,
-    fontWeight: '700',
     color: Colors.expenseRed,
+  },
+  profitRow: {
+    marginTop: 4,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E9DF',
+  },
+  profitLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primaryText,
+  },
+  profitValue: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0E5B42',
   },
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   addButton: {
-    height: 30,
+    height: 32,
     backgroundColor: Colors.accentGreen,
     borderRadius: 8,
     paddingHorizontal: 14,
@@ -231,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButton: {
-    backgroundColor: '#2E5343',
+    backgroundColor: '#0E5B42',
   },
   addButtonPressed: {
     backgroundColor: Colors.accentGreenPressed,
@@ -239,7 +263,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.1,
   },
