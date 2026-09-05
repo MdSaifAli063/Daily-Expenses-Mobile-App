@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 
 export interface BottomNavigationProps {
-  activeTab?: 'home' | 'entries' | 'reports' | 'logout';
+  activeTab?: 'home' | 'entries' | 'reports' | 'profile';
   onTabPress?: (tab: string) => void;
   onAddPress?: () => void;
 }
@@ -133,26 +133,26 @@ export function BottomNavigation({
           </Text>
         </Pressable>
 
-        {/* Logout Tab */}
+        {/* Profile Tab */}
         <Pressable
           style={styles.tabItem}
-          onPress={() => handleTabPress('logout')}
+          onPress={() => handleTabPress('profile')}
           accessibilityRole="tab"
-          accessibilityLabel="Logout"
-          accessibilityState={{ selected: activeTab === 'logout' }}
+          accessibilityLabel="Profile"
+          accessibilityState={{ selected: activeTab === 'profile' }}
         >
           <Ionicons
-            name={activeTab === 'logout' ? 'log-out' : 'log-out-outline'}
+            name={activeTab === 'profile' ? 'person' : 'person-outline'}
             size={21}
-            color={activeTab === 'logout' ? Colors.navActive : Colors.navInactive}
+            color={activeTab === 'profile' ? Colors.navActive : Colors.navInactive}
           />
           <Text
             style={[
               styles.tabLabel,
-              activeTab === 'logout' ? styles.activeTabLabel : styles.inactiveTabLabel,
+              activeTab === 'profile' ? styles.activeTabLabel : styles.inactiveTabLabel,
             ]}
           >
-            Logout
+            Profile
           </Text>
         </Pressable>
       </View>

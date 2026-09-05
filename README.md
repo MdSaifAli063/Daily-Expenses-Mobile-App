@@ -162,6 +162,35 @@ The **Daily Expenses / Shop Ledger App** is built with **React Native**, **Expo 
   - Private Supabase Storage bucket `report-exports` with strict per-user RLS policies.
   - Migration script: `supabase/migrations/0004_reports.sql`.
 
+### ✅ Phase 8: Profile / Account Page & Logout System (`app/profile.tsx`, `app/edit-profile.tsx`)
+- **Bottom Navigation Overhaul (`components/BottomNavigation.tsx`)**:
+  - Replaced legacy Logout tab with **Profile** (`Home | Entries | + | Reports | Profile`).
+  - Active tab highlighting, styled `person-outline` icon, and dedicated navigation to `/profile`.
+  - Floating center `+` button preserved, opening `/add-entry`.
+- **Profile Screen (`app/profile.tsx`)**:
+  - Warm shop ledger header with *"Profile - Manage your shop and account"*.
+  - Owner avatar card with shop owner role badge.
+  - **Shop Information Card**: Displays live `shop_name`, `owner_name`, `mobile`, and `email` from `public.shops`.
+  - **Account Card**: Displays active account status badge, mobile number, and email (with *"Not added"* fallback).
+  - **Edit Profile Action**: Full-width terracotta action button opening `/edit-profile`.
+  - **Confirmed Logout Action**: Clean modal confirmation dialog prompting user before calling `supabase.auth.signOut()` and redirecting to Login (`/`).
+  - Dedicated loading spinner and friendly error recovery states.
+- **Edit Profile Screen (`app/edit-profile.tsx`)**:
+  - Header with back navigation `←` returning to `/profile`.
+  - Form inputs with real-time validation:
+    - Shop name: required, non-empty.
+    - Owner name: required, non-empty.
+    - Mobile number: required, strictly 10 digits validation.
+    - Email: optional, standard email format validation.
+  - Submits updates directly to `public.shops` scoped by `auth.uid() = user_id`.
+  - Disables button and displays *"Saving..."* during submission.
+  - Seamlessly re-syncs updated shop name and owner greeting with Home dashboard via `useFocusEffect`.
+- **Profile Service (`services/profileService.ts`)**:
+  - Centralizes profile fetch and update queries with type-safe payloads.
+  - Zero changes to existing phone-number authentication.
+- **Route Guard Protection (`app/_layout.tsx`)**:
+  - Enforces strict route guarding: all non-auth routes redirect unauthenticated users to `/`.
+
 ---
 
 ### ✅ System & Platform Upgrades: Expo SDK 57
@@ -180,9 +209,11 @@ d:/Daily Expenses App/
 │   ├── _layout.tsx                      # Root layout, AuthProvider & route protection guard
 │   ├── index.tsx                        # Login Screen (Phase 1)
 │   ├── register.tsx                     # Shop Registration Screen (Phase 2)
-│   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3, 5, 6)
+│   ├── home.tsx                         # Main Dashboard / Home Screen (Phase 3, 5, 6, 8)
 │   ├── entries.tsx                      # Entries History Screen (Phase 6)
 │   ├── reports.tsx                      # Reports & Analytics Screen (Phase 7)
+│   ├── profile.tsx                      # Profile & Account Management Screen (Phase 8)
+│   ├── edit-profile.tsx                 # Edit Shop Profile Screen (Phase 8)
 │   ├── entry/
 │   │   └── [id].tsx                     # Entry Detail Screen (Phase 6)
 │   └── add-entry.tsx                    # Add / Edit Daily Entry Screen (Phase 5, 6)
@@ -208,6 +239,7 @@ d:/Daily Expenses App/
 │   └── supabase.ts                      # Supabase client singleton with AsyncStorage
 ├── services/
 │   ├── dailyEntryService.ts             # Supabase operations for daily entries & expenses
+│   ├── profileService.ts                # Profile fetch & update operations for `public.shops`
 │   ├── reportService.ts                 # Report aggregation, PDF/Excel generation & export tracking
 │   └── shopService.ts                   # Supabase DB operations for `public.shops`
 ├── supabase/

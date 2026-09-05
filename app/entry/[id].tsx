@@ -135,13 +135,8 @@ export default function EntryDetailScreen() {
       router.push('/reports');
       return;
     }
-    if (tab === 'logout') {
-      try {
-        await signOut();
-        router.replace('/');
-      } catch (err) {
-        console.error('[EntryDetailScreen] Logout error:', err);
-      }
+    if (tab === 'profile') {
+      router.push('/profile');
       return;
     }
   };

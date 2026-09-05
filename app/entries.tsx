@@ -176,17 +176,8 @@ export default function EntriesScreen() {
       router.push('/reports');
       return;
     }
-    if (tab === 'logout') {
-      if (isLoggingOut) return;
-      setIsLoggingOut(true);
-      try {
-        await signOut();
-        router.replace('/');
-      } catch (err) {
-        console.error('[EntriesScreen] Logout error:', err);
-      } finally {
-        setIsLoggingOut(false);
-      }
+    if (tab === 'profile') {
+      router.push('/profile');
       return;
     }
   };
