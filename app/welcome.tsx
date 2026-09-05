@@ -62,7 +62,7 @@ export default function WelcomeScreen() {
             },
           ]}
         >
-          <Text style={styles.brandLabel}>DAILY EXPENSES</Text>
+          <Text style={styles.brandLabel}>DAILYDOUBT</Text>
 
           <Text style={styles.mainHeading}>
             Your shop.{'\n'}Your numbers.{'\n'}In one place.
@@ -107,7 +107,7 @@ export default function WelcomeScreen() {
             title="Get started"
             onPress={handleGetStarted}
             style={styles.getStartedButton}
-            accessibilityLabel="Get started with Daily Expenses"
+            accessibilityLabel="Get started with Dailydoubt"
           />
 
           <Text style={styles.footerText}>

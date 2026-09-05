@@ -1,25 +1,34 @@
 {
   "expo": {
-    "name": "Daily Expenses App",
-    "slug": "daily-expenses-app",
+    "name": "Dailydoubt",
+    "slug": "dailydoubt",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "dailyexpenses",
+    "scheme": "dailydoubt",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F5F6F1"
+      "backgroundColor": "#F4F6F0"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.softtrickscode.dailydoubt",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#F5F6F1"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F4F6F0"
       }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
