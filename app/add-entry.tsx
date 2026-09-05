@@ -41,7 +41,7 @@ const CATEGORY_OPTIONS = [
 export default function AddEntryScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const params = useLocalSearchParams<{ date?: string }>();
+  const params = useLocalSearchParams<{ date?: string; entryId?: string }>();
 
   // Shop state
   const [shop, setShop] = useState<Shop | null>(null);
@@ -68,7 +68,8 @@ export default function AddEntryScreen() {
   const [activeExpenseIndexForCategory, setActiveExpenseIndexForCategory] = useState<number | null>(null);
 
   // Status state
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(params.entryId || null);
+  const [isEditMode, setIsEditMode] = useState(!!params.entryId);
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -102,7 +103,7 @@ export default function AddEntryScreen() {
     };
   }, [user]);
 
-  // Load existing entry whenever date or shop changes
+  // Load existing entry whenever date, entryId, or shop changes
   useEffect(() => {
     let isMounted = true;
     const dateStr = getLocalDateString(selectedDate);
@@ -113,49 +114,80 @@ export default function AddEntryScreen() {
     setErrorMessage(null);
     setCollectionError(null);
 
-    dailyEntryService
-      .getEntryByDate(dateStr, shop.id)
-      .then(({ data, error }) => {
+    const loadData = async () => {
+      // If entryId was provided initially and dates match, load by ID or date
+      if (params.entryId && isMounted) {
+        const { data: idData, error: idError } = await dailyEntryService.getEntryById(params.entryId);
         if (!isMounted) return;
-
-        if (error) {
-          console.warn('[AddEntryScreen] Check entry error:', error);
-          return;
-        }
-
-        if (data) {
-          // Entry exists -> Edit Mode
+        if (idData) {
+          setCurrentEntryId(idData.id);
           setIsEditMode(true);
-          setDayType(data.day_type || 'working');
-          setCollection(String(data.collection));
-          setHomeExpense(String(data.home_expense));
-          setNotes(data.notes || '');
+          const entryDateObj = new Date(idData.entry_date);
+          if (!isNaN(entryDateObj.getTime())) {
+            setSelectedDate(entryDateObj);
+          }
+          setDayType(idData.day_type || 'working');
+          setCollection(String(idData.collection));
+          setHomeExpense(String(idData.home_expense));
+          setNotes(idData.notes || '');
           setOtherExpenses(
-            (data.other_expenses || []).map((oe) => ({
+            (idData.other_expenses || []).map((oe) => ({
               id: oe.id,
               expense_name: oe.expense_name,
               amount: String(oe.amount),
               category: oe.category || 'Business',
             }))
           );
-        } else {
-          // Fresh entry -> Defaults
-          setIsEditMode(false);
-          setDayType('working');
-          setCollection('0');
-          setHomeExpense('0');
-          setNotes('');
-          setOtherExpenses([]);
+          setLoadingEntry(false);
+          return;
         }
-      })
-      .finally(() => {
-        if (isMounted) setLoadingEntry(false);
-      });
+      }
+
+      // Query by date
+      const { data, error } = await dailyEntryService.getEntryByDate(dateStr, shop.id);
+      if (!isMounted) return;
+
+      if (error) {
+        console.warn('[AddEntryScreen] Check entry error:', error);
+      }
+
+      if (data) {
+        // Entry exists for this date -> Edit Mode
+        setCurrentEntryId(data.id);
+        setIsEditMode(true);
+        setDayType(data.day_type || 'working');
+        setCollection(String(data.collection));
+        setHomeExpense(String(data.home_expense));
+        setNotes(data.notes || '');
+        setOtherExpenses(
+          (data.other_expenses || []).map((oe) => ({
+            id: oe.id,
+            expense_name: oe.expense_name,
+            amount: String(oe.amount),
+            category: oe.category || 'Business',
+          }))
+        );
+      } else {
+        // Fresh entry for this date -> Defaults
+        if (!params.entryId) {
+          setCurrentEntryId(null);
+          setIsEditMode(false);
+        }
+        setDayType('working');
+        setCollection('0');
+        setHomeExpense('0');
+        setNotes('');
+        setOtherExpenses([]);
+      }
+      setLoadingEntry(false);
+    };
+
+    loadData();
 
     return () => {
       isMounted = false;
     };
-  }, [selectedDate, shop?.id]);
+  }, [selectedDate, shop?.id, params.entryId]);
 
   // Date selection handler
   const handleDatePicked = (newDate: Date) => {
@@ -249,6 +281,20 @@ export default function AddEntryScreen() {
     setIsSaving(true);
 
     try {
+      // Check date collision if editing an existing entry and date is altered
+      if (currentEntryId && shop?.id) {
+        const { hasCollision } = await dailyEntryService.checkDateCollision(
+          dateStr,
+          currentEntryId,
+          shop.id
+        );
+        if (hasCollision) {
+          setErrorMessage('An entry already exists for this date.');
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const { data, error } = await dailyEntryService.saveDailyEntry({
         entry_date: dateStr,
         day_type: dayType,
@@ -274,8 +320,15 @@ export default function AddEntryScreen() {
         return;
       }
 
-      // Success -> navigate to Home
-      router.replace('/home');
+      // Success -> navigate to entry detail if editing, otherwise Home
+      if (currentEntryId) {
+        router.replace({
+          pathname: '/entry/[id]',
+          params: { id: data?.daily_entry_id || currentEntryId },
+        });
+      } else {
+        router.replace('/home');
+      }
     } catch (err: any) {
       console.error('[AddEntryScreen] Unexpected save error:', err);
       setErrorMessage('An unexpected error occurred while saving.');
@@ -288,6 +341,10 @@ export default function AddEntryScreen() {
   const handleTabPress = async (tab: string) => {
     if (tab === 'home') {
       router.replace('/home');
+      return;
+    }
+    if (tab === 'entries') {
+      router.replace('/entries');
       return;
     }
     if (tab === 'logout') {

@@ -1,5 +1,74 @@
 import { supabase } from '../lib/supabase';
 import { DailyEntry, SaveDailyEntryInput, SaveDailyEntryResult } from '../types/dailyEntry';
+import { calculateEntryFinancials } from '../utils/entryCalculations';
+
+export interface MonthSummaryData {
+  totalCollection: number;
+  totalExpense: number;
+  totalProfit: number;
+  workingDays: number;
+  holidays: number;
+}
+
+/**
+ * Common select query fields for daily_entries and nested other_expenses.
+ */
+const ENTRY_SELECT_QUERY = `
+  id,
+  shop_id,
+  user_id,
+  entry_date,
+  day_type,
+  collection,
+  milk_expense,
+  vimal_expense,
+  home_expense,
+  notes,
+  created_at,
+  updated_at,
+  other_expenses (
+    id,
+    daily_entry_id,
+    shop_id,
+    user_id,
+    expense_name,
+    amount,
+    category,
+    created_at,
+    updated_at
+  )
+`;
+
+/**
+ * Normalizes a raw Supabase daily_entries row into a typed DailyEntry object.
+ */
+function mapDbRowToDailyEntry(data: any): DailyEntry {
+  return {
+    id: data.id,
+    shop_id: data.shop_id,
+    user_id: data.user_id,
+    entry_date: data.entry_date,
+    day_type: (data.day_type as 'working' | 'holiday') || 'working',
+    collection: Number(data.collection) || 0,
+    milk_expense: Number(data.milk_expense) || 0,
+    vimal_expense: Number(data.vimal_expense) || 0,
+    home_expense: Number(data.home_expense) || 0,
+    notes: data.notes || null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    other_expenses: (data.other_expenses || []).map((oe: any) => ({
+      id: oe.id,
+      daily_entry_id: oe.daily_entry_id,
+      shop_id: oe.shop_id,
+      user_id: oe.user_id,
+      expense_name: oe.expense_name,
+      amount: Number(oe.amount) || 0,
+      category: oe.category || 'Business',
+      created_at: oe.created_at,
+      updated_at: oe.updated_at,
+    })),
+  };
+}
 
 /**
  * Returns YYYY-MM-DD in local device timezone (avoiding UTC offset shifting).
@@ -50,31 +119,7 @@ export const dailyEntryService = {
     try {
       let query = supabase
         .from('daily_entries')
-        .select(`
-          id,
-          shop_id,
-          user_id,
-          entry_date,
-          day_type,
-          collection,
-          milk_expense,
-          vimal_expense,
-          home_expense,
-          notes,
-          created_at,
-          updated_at,
-          other_expenses (
-            id,
-            daily_entry_id,
-            shop_id,
-            user_id,
-            expense_name,
-            amount,
-            category,
-            created_at,
-            updated_at
-          )
-        `)
+        .select(ENTRY_SELECT_QUERY)
         .eq('entry_date', dateStr);
 
       if (shopId) {
@@ -91,36 +136,224 @@ export const dailyEntryService = {
         return { data: null, error: null };
       }
 
-      const entry: DailyEntry = {
-        id: data.id,
-        shop_id: data.shop_id,
-        user_id: data.user_id,
-        entry_date: data.entry_date,
-        day_type: data.day_type as 'working' | 'holiday',
-        collection: Number(data.collection) || 0,
-        milk_expense: Number(data.milk_expense) || 0,
-        vimal_expense: Number(data.vimal_expense) || 0,
-        home_expense: Number(data.home_expense) || 0,
-        notes: data.notes || null,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        other_expenses: (data.other_expenses || []).map((oe: any) => ({
-          id: oe.id,
-          daily_entry_id: oe.daily_entry_id,
-          shop_id: oe.shop_id,
-          user_id: oe.user_id,
-          expense_name: oe.expense_name,
-          amount: Number(oe.amount) || 0,
-          category: oe.category || 'Business',
-          created_at: oe.created_at,
-          updated_at: oe.updated_at,
-        })),
-      };
-
-      return { data: entry, error: null };
+      return { data: mapDbRowToDailyEntry(data), error: null };
     } catch (err: any) {
       console.error('[dailyEntryService.getEntryByDate] Unexpected error:', err);
       return { data: null, error: err };
+    }
+  },
+
+  /**
+   * Retrieves a single daily entry by its primary ID.
+   */
+  async getEntryById(
+    id: string
+  ): Promise<{ data: DailyEntry | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select(ENTRY_SELECT_QUERY)
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) {
+        return { data: null, error: new Error(error.message) };
+      }
+
+      if (!data) {
+        return { data: null, error: null };
+      }
+
+      return { data: mapDbRowToDailyEntry(data), error: null };
+    } catch (err: any) {
+      console.error('[dailyEntryService.getEntryById] Unexpected error:', err);
+      return { data: null, error: err };
+    }
+  },
+
+  /**
+   * Retrieves recent daily entries ordered newest first (entry_date DESC).
+   */
+  async getRecentEntries(
+    limit: number = 5,
+    shopId?: string
+  ): Promise<{ data: DailyEntry[] | null; error: Error | null }> {
+    try {
+      let query = supabase
+        .from('daily_entries')
+        .select(ENTRY_SELECT_QUERY)
+        .order('entry_date', { ascending: false })
+        .limit(limit);
+
+      if (shopId) {
+        query = query.eq('shop_id', shopId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return { data: null, error: new Error(error.message) };
+      }
+
+      const entries = (data || []).map(mapDbRowToDailyEntry);
+      return { data: entries, error: null };
+    } catch (err: any) {
+      console.error('[dailyEntryService.getRecentEntries] Unexpected error:', err);
+      return { data: null, error: err };
+    }
+  },
+
+  /**
+   * Retrieves entries for a specific month (year, month 1-12) using clean PostgreSQL range filtering:
+   * entry_date >= startDate AND entry_date < nextMonthStartDate.
+   */
+  async getEntriesByMonth(
+    year: number,
+    month: number, // 1 - 12
+    shopId?: string
+  ): Promise<{ data: DailyEntry[] | null; error: Error | null }> {
+    try {
+      const startMonthStr = String(month).padStart(2, '0');
+      const startDate = `${year}-${startMonthStr}-01`;
+
+      let nextYear = year;
+      let nextMonth = month + 1;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear += 1;
+      }
+      const nextMonthStr = String(nextMonth).padStart(2, '0');
+      const nextMonthStartDate = `${nextYear}-${nextMonthStr}-01`;
+
+      let query = supabase
+        .from('daily_entries')
+        .select(ENTRY_SELECT_QUERY)
+        .gte('entry_date', startDate)
+        .lt('entry_date', nextMonthStartDate)
+        .order('entry_date', { ascending: false });
+
+      if (shopId) {
+        query = query.eq('shop_id', shopId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return { data: null, error: new Error(error.message) };
+      }
+
+      const entries = (data || []).map(mapDbRowToDailyEntry);
+      return { data: entries, error: null };
+    } catch (err: any) {
+      console.error('[dailyEntryService.getEntriesByMonth] Unexpected error:', err);
+      return { data: null, error: err };
+    }
+  },
+
+  /**
+   * Computes monthly totals (collection, expense, profit, working days, holidays) for a specific month.
+   */
+  async getMonthSummary(
+    year: number,
+    month: number,
+    shopId?: string
+  ): Promise<{ data: MonthSummaryData | null; error: Error | null }> {
+    try {
+      const { data: entries, error } = await this.getEntriesByMonth(year, month, shopId);
+
+      if (error || !entries) {
+        return { data: null, error: error || new Error('Failed to load month entries') };
+      }
+
+      let totalCollection = 0;
+      let totalExpense = 0;
+      let workingDays = 0;
+      let holidays = 0;
+
+      for (const entry of entries) {
+        const breakdown = calculateEntryFinancials(entry);
+        totalCollection += breakdown.collection;
+        totalExpense += breakdown.totalExpense;
+        if (entry.day_type === 'holiday') {
+          holidays += 1;
+        } else {
+          workingDays += 1;
+        }
+      }
+
+      const totalProfit = totalCollection - totalExpense;
+
+      return {
+        data: {
+          totalCollection,
+          totalExpense,
+          totalProfit,
+          workingDays,
+          holidays,
+        },
+        error: null,
+      };
+    } catch (err: any) {
+      console.error('[dailyEntryService.getMonthSummary] Unexpected error:', err);
+      return { data: null, error: err };
+    }
+  },
+
+  /**
+   * Checks if another entry already exists for a date (for safe date-change collision detection).
+   */
+  async checkDateCollision(
+    entryDate: string,
+    excludeEntryId?: string,
+    shopId?: string
+  ): Promise<{ hasCollision: boolean; error: Error | null }> {
+    try {
+      let query = supabase
+        .from('daily_entries')
+        .select('id')
+        .eq('entry_date', entryDate);
+
+      if (shopId) {
+        query = query.eq('shop_id', shopId);
+      }
+      if (excludeEntryId) {
+        query = query.neq('id', excludeEntryId);
+      }
+
+      const { data, error } = await query.maybeSingle();
+
+      if (error) {
+        return { hasCollision: false, error: new Error(error.message) };
+      }
+
+      return { hasCollision: !!data, error: null };
+    } catch (err: any) {
+      console.error('[dailyEntryService.checkDateCollision] Unexpected error:', err);
+      return { hasCollision: false, error: err };
+    }
+  },
+
+  /**
+   * Deletes a daily entry and its associated other_expenses.
+   */
+  async deleteEntry(
+    id: string
+  ): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      // Ensure other expenses are cleanly deleted
+      await supabase.from('other_expenses').delete().eq('daily_entry_id', id);
+
+      // Delete daily entry row
+      const { error } = await supabase.from('daily_entries').delete().eq('id', id);
+
+      if (error) {
+        return { success: false, error: new Error(error.message) };
+      }
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error('[dailyEntryService.deleteEntry] Unexpected error:', err);
+      return { success: false, error: err };
     }
   },
 
@@ -137,8 +370,8 @@ export const dailyEntryService = {
         p_entry_date: input.entry_date,
         p_day_type: input.day_type,
         p_collection: input.collection,
-        p_milk_expense: input.milk_expense,
-        p_vimal_expense: input.vimal_expense,
+        p_milk_expense: input.milk_expense || 0,
+        p_vimal_expense: input.vimal_expense || 0,
         p_home_expense: input.home_expense,
         p_notes: input.notes,
         p_other_expenses: input.other_expenses,
@@ -195,8 +428,8 @@ export const dailyEntryService = {
             entry_date: input.entry_date,
             day_type: input.day_type,
             collection: input.collection,
-            milk_expense: input.milk_expense,
-            vimal_expense: input.vimal_expense,
+            milk_expense: 0,
+            vimal_expense: 0,
             home_expense: input.home_expense,
             notes: input.notes?.trim() || null,
           },
