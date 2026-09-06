@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -33,41 +33,50 @@ import {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [loadingShop, setLoadingShop] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { user } = useAuth();
+  const [shop, setShop] = useState<Shop | null>(shopService.getCachedShop());
+  const [loadingShop, setLoadingShop] = useState(!shop);
 
   // Today's entry state
   const [todayEntry, setTodayEntry] = useState<DailyEntry | null>(null);
-  const [loadingTodayEntry, setLoadingTodayEntry] = useState(false);
 
   // Monthly summary state
   const [monthSummary, setMonthSummary] = useState<MonthSummaryData | null>(null);
-  const [loadingMonthSummary, setLoadingMonthSummary] = useState(false);
 
   // Recent entries state
   const [recentEntries, setRecentEntries] = useState<DailyEntry[]>([]);
   const [loadingRecentEntries, setLoadingRecentEntries] = useState(false);
 
   // Current local device date details
-  const today = new Date();
-  const dayOfWeekName = today
-    .toLocaleDateString('en-US', { weekday: 'long' })
-    .toUpperCase();
-  const formattedTodayDate = today.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-  const todayDateStr = getLocalDateString(today);
+  const today = useMemo(() => new Date(), []);
+  const dayOfWeekName = useMemo(
+    () => today.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase(),
+    [today]
+  );
+  const formattedTodayDate = useMemo(
+    () =>
+      today.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+    [today]
+  );
+  const todayDateStr = useMemo(() => getLocalDateString(today), [today]);
 
-  // Load authenticated user's shop profile from Supabase
+  // Load authenticated user's shop profile (uses in-memory cache)
   useEffect(() => {
     let isMounted = true;
 
     if (!user) {
       setShop(null);
+      setLoadingShop(false);
+      return;
+    }
+
+    const cached = shopService.getCachedShop();
+    if (cached) {
+      setShop(cached);
       setLoadingShop(false);
       return;
     }
@@ -92,69 +101,51 @@ export default function HomeScreen() {
     };
   }, [user]);
 
-  // Refresh home data on focus (shop profile, today entry, monthly totals, recent entries)
+  // Refresh home data on focus using parallel requests and cache
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
       if (!user?.id) return;
 
       const refreshHomeData = async () => {
-        // 0. Refresh shop profile
-        const { data: refreshedShop } = await shopService.getCurrentShop(user.id);
-        if (isMounted && refreshedShop) {
-          setShop(refreshedShop);
+        let activeShop = shop || shopService.getCachedShop();
+
+        if (!activeShop) {
+          const { data: fetchedShop } = await shopService.getCurrentShop(user.id);
+          if (!isMounted) return;
+          if (fetchedShop) {
+            activeShop = fetchedShop;
+            setShop(fetchedShop);
+          }
         }
 
-        const activeShopId = refreshedShop?.id || shop?.id;
-        if (!activeShopId) return;
+        if (!activeShop) return;
+        const activeShopId = activeShop.id;
 
-        // 1. Fetch today's entry
-        setLoadingTodayEntry(true);
-        dailyEntryService
-          .getEntryByDate(todayDateStr, activeShopId)
-          .then(({ data }) => {
-            if (isMounted) {
-              setTodayEntry(data);
-            }
-          })
-          .catch((err) => {
-            console.error('[HomeScreen] Error fetching today entry:', err);
-          })
-          .finally(() => {
-            if (isMounted) setLoadingTodayEntry(false);
-          });
+        setLoadingRecentEntries((prev) => (recentEntries.length === 0 ? true : prev));
 
-        // 2. Fetch current month's summary
-        setLoadingMonthSummary(true);
-        dailyEntryService
-          .getMonthSummary(today.getFullYear(), today.getMonth() + 1, activeShopId)
-          .then(({ data }) => {
-            if (isMounted && data) {
-              setMonthSummary(data);
-            }
-          })
-          .catch((err) => {
-            console.error('[HomeScreen] Error fetching month summary:', err);
-          })
-          .finally(() => {
-            if (isMounted) setLoadingMonthSummary(false);
-          });
+        // Fire all 3 independent dashboard queries in parallel
+        const [todayRes, monthRes, recentRes] = await Promise.allSettled([
+          dailyEntryService.getEntryByDate(todayDateStr, activeShopId),
+          dailyEntryService.getMonthSummary(today.getFullYear(), today.getMonth() + 1, activeShopId),
+          dailyEntryService.getRecentEntries(5, activeShopId),
+        ]);
 
-        // 3. Fetch recent 5 entries
-        setLoadingRecentEntries(true);
-        dailyEntryService
-          .getRecentEntries(5, activeShopId)
-          .then(({ data }) => {
-            if (isMounted && data) {
-              setRecentEntries(data);
-            }
-          })
-          .catch((err) => {
-            console.error('[HomeScreen] Error fetching recent entries:', err);
-          })
-          .finally(() => {
-            if (isMounted) setLoadingRecentEntries(false);
-          });
+        if (!isMounted) return;
+
+        if (todayRes.status === 'fulfilled' && todayRes.value.data !== undefined) {
+          setTodayEntry(todayRes.value.data);
+        }
+
+        if (monthRes.status === 'fulfilled' && monthRes.value.data) {
+          setMonthSummary(monthRes.value.data);
+        }
+
+        if (recentRes.status === 'fulfilled' && recentRes.value.data) {
+          setRecentEntries(recentRes.value.data);
+        }
+
+        setLoadingRecentEntries(false);
       };
 
       refreshHomeData();
@@ -162,11 +153,11 @@ export default function HomeScreen() {
       return () => {
         isMounted = false;
       };
-    }, [user?.id, shop?.id, todayDateStr])
+    }, [user?.id, shop?.id, todayDateStr, today])
   );
 
   // Navigation handlers
-  const handleOpenTodayAction = () => {
+  const handleOpenTodayAction = useCallback(() => {
     if (todayEntry) {
       router.push({
         pathname: '/entry/[id]',
@@ -178,37 +169,40 @@ export default function HomeScreen() {
         params: { date: todayDateStr },
       });
     }
-  };
+  }, [todayEntry, todayDateStr, router]);
 
-  const handleFloatingAdd = () => {
+  const handleFloatingAdd = useCallback(() => {
     router.push({
       pathname: '/add-entry',
       params: { date: todayDateStr },
     });
-  };
+  }, [todayDateStr, router]);
 
-  const handleSeeAllEntries = () => {
+  const handleSeeAllEntries = useCallback(() => {
     router.push('/entries');
-  };
+  }, [router]);
 
-  const handleOpenReports = () => {
+  const handleOpenReports = useCallback(() => {
     router.push('/reports');
-  };
+  }, [router]);
 
-  const handleTabPress = async (tab: string) => {
-    if (tab === 'entries') {
-      router.push('/entries');
-      return;
-    }
-    if (tab === 'reports') {
-      router.push('/reports');
-      return;
-    }
-    if (tab === 'profile') {
-      router.push('/profile');
-      return;
-    }
-  };
+  const handleTabPress = useCallback(
+    async (tab: string) => {
+      if (tab === 'entries') {
+        router.push('/entries');
+        return;
+      }
+      if (tab === 'reports') {
+        router.push('/reports');
+        return;
+      }
+      if (tab === 'profile') {
+        router.push('/profile');
+        return;
+      }
+    },
+    [router]
+  );
 
   // Header texts
   const displayedShopName = shop?.shop_name || (loadingShop ? 'Loading...' : 'Your Shop');
@@ -219,7 +213,10 @@ export default function HomeScreen() {
     : 'Hi, there';
 
   // Calculate today's financials if entry exists
-  const todayFinancials = todayEntry ? calculateEntryFinancials(todayEntry) : null;
+  const todayFinancials = useMemo(
+    () => (todayEntry ? calculateEntryFinancials(todayEntry) : null),
+    [todayEntry]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

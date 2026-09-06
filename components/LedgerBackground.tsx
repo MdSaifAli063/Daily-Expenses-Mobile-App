@@ -8,7 +8,7 @@ const LINE_SPACING = 28;
  * LedgerBackground renders an authentic ruled-paper / shop ledger line effect
  * across the entire screen using subtle, thin horizontal lines.
  */
-export function LedgerBackground() {
+export const LedgerBackground = React.memo(function LedgerBackground() {
   const { height } = useWindowDimensions();
 
   // Calculate enough lines to comfortably cover the screen plus scroll buffer
@@ -34,7 +34,7 @@ export function LedgerBackground() {
       ))}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

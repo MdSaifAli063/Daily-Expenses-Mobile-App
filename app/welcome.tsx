@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
+  Linking,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { LedgerBackground } from '../components/LedgerBackground';
+import { BrandLogoHeader } from '../components/BrandLogoHeader';
 import { WelcomeLogo } from '../components/WelcomeLogo';
 import { WelcomeFinanceIllustration } from '../components/WelcomeFinanceIllustration';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -42,6 +45,15 @@ export default function WelcomeScreen() {
     router.push('/');
   };
 
+  const handleOpenSoftTricksCode = async () => {
+    try {
+      const url = 'https://www.softtrickscode.com';
+      await Linking.openURL(url);
+    } catch (err) {
+      console.warn('[WelcomeScreen] Could not open link:', err);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Background ruled ledger lines */}
@@ -62,7 +74,8 @@ export default function WelcomeScreen() {
             },
           ]}
         >
-          <Text style={styles.brandLabel}>DAILYDOUBT</Text>
+          {/* Enhanced Dailydoubt Brand Lockup */}
+          <BrandLogoHeader variant="landing" tagline="SMART SHOP LEDGER" />
 
           <Text style={styles.mainHeading}>
             Your shop.{'\n'}Your numbers.{'\n'}In one place.
@@ -73,7 +86,7 @@ export default function WelcomeScreen() {
           </Text>
         </Animated.View>
 
-        {/* Center Visual Section: Brand Logo + Illustration Card */}
+        {/* Center Visual Section: Illustration Card */}
         <Animated.View
           style={[
             styles.visualSection,
@@ -83,11 +96,6 @@ export default function WelcomeScreen() {
             },
           ]}
         >
-          {/* Custom Brand Logo */}
-          <View style={styles.logoContainer}>
-            <WelcomeLogo size={84} />
-          </View>
-
           {/* Decorative Shop Finance Illustration */}
           <View style={styles.illustrationContainer}>
             <WelcomeFinanceIllustration />
@@ -113,6 +121,19 @@ export default function WelcomeScreen() {
           <Text style={styles.footerText}>
             Simple. Private. Built for your shop.
           </Text>
+
+          {/* Powered by Soft Tricks Code */}
+          <Pressable
+            onPress={handleOpenSoftTricksCode}
+            hitSlop={8}
+            style={styles.poweredByContainer}
+            accessibilityRole="link"
+            accessibilityLabel="Powered by Soft Tricks Code"
+          >
+            <Text style={styles.poweredByText}>
+              Powered by <Text style={styles.poweredByBrand}>Soft Tricks Code</Text>
+            </Text>
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -193,10 +214,28 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   footerText: {
-    marginTop: 14,
+    marginTop: 12,
     fontSize: 12,
     color: Colors.secondaryText,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  poweredByContainer: {
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  poweredByText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  poweredByBrand: {
+    color: '#0E5B42',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

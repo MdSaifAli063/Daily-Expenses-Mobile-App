@@ -18,22 +18,30 @@ import { LedgerBackground } from '../components/LedgerBackground';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { useAuth } from '../context/AuthContext';
 import { profileService } from '../services/profileService';
+import { shopService } from '../services/shopService';
 import { Shop } from '../types/shop';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
 
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [shop, setShop] = useState<Shop | null>(shopService.getCachedShop());
+  const [loading, setLoading] = useState(!shop);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
   // Load shop profile from Supabase using authenticated user's ID
-  const loadProfileData = useCallback(async () => {
+  const loadProfileData = useCallback(async (isRefresh = false) => {
     if (!user?.id) return;
     setError(null);
+
+    const cached = shopService.getCachedShop();
+    if (cached && !isRefresh) {
+      setShop(cached);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error: fetchError } = await profileService.getProfile(user.id);
@@ -54,13 +62,13 @@ export default function ProfileScreen() {
   // Re-fetch profile data whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      loadProfileData();
+      loadProfileData(false);
     }, [loadProfileData])
   );
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadProfileData();
+    loadProfileData(true);
   };
 
   const handleEditProfile = () => {
@@ -164,7 +172,7 @@ export default function ProfileScreen() {
             <Ionicons name="alert-circle-outline" size={44} color={Colors.expenseRed} />
             <Text style={styles.errorTitle}>Unable to load your profile.</Text>
             <Text style={styles.errorSubtitle}>Please check your connection and try again.</Text>
-            <Pressable style={styles.retryButton} onPress={loadProfileData}>
+            <Pressable style={styles.retryButton} onPress={() => loadProfileData(true)}>
               <Text style={styles.retryButtonText}>Try again</Text>
             </Pressable>
           </View>

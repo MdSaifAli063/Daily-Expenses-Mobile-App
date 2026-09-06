@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -26,12 +26,11 @@ import { formatMonthTitle } from '../utils/entryCalculations';
 
 export default function EntriesScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
 
   // Shop state
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [loadingShop, setLoadingShop] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [shop, setShop] = useState<Shop | null>(shopService.getCachedShop());
+  const [loadingShop, setLoadingShop] = useState(!shop);
 
   // Month navigation state (defaults to current device month and year)
   const now = new Date();
@@ -45,10 +44,17 @@ export default function EntriesScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load shop profile
+  // Load shop profile using fast cache
   useEffect(() => {
     let isMounted = true;
     if (!user) {
+      setLoadingShop(false);
+      return;
+    }
+
+    const cached = shopService.getCachedShop();
+    if (cached) {
+      setShop(cached);
       setLoadingShop(false);
       return;
     }
@@ -76,7 +82,9 @@ export default function EntriesScreen() {
   // Fetch entries for the selected month
   const fetchMonthEntries = useCallback(
     async (isRefresh = false) => {
-      if (!shop?.id) return;
+      const activeShopId = shop?.id || shopService.getCachedShop()?.id;
+      if (!activeShopId) return;
+
       if (isRefresh) {
         setRefreshing(true);
       } else {
@@ -88,7 +96,7 @@ export default function EntriesScreen() {
         const { data, error } = await dailyEntryService.getEntriesByMonth(
           selectedYear,
           selectedMonth,
-          shop.id
+          activeShopId
         );
 
         if (error) {
@@ -114,28 +122,28 @@ export default function EntriesScreen() {
   );
 
   // Pull-to-refresh handler
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchMonthEntries(true);
-  };
+  }, [fetchMonthEntries]);
 
   // Month navigation handlers
-  const handlePrevMonth = () => {
+  const handlePrevMonth = useCallback(() => {
     if (selectedMonth === 1) {
       setSelectedMonth(12);
       setSelectedYear((prev) => prev - 1);
     } else {
       setSelectedMonth((prev) => prev - 1);
     }
-  };
+  }, [selectedMonth]);
 
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     if (selectedMonth === 12) {
       setSelectedMonth(1);
       setSelectedYear((prev) => prev + 1);
     } else {
       setSelectedMonth((prev) => prev + 1);
     }
-  };
+  }, [selectedMonth]);
 
   // Filter entries by notes search query (case-insensitive)
   const filteredEntries = useMemo(() => {
@@ -150,26 +158,25 @@ export default function EntriesScreen() {
   }, [entries, searchQuery]);
 
   // Card click: open detail screen
-  const handleOpenDetail = (entry: DailyEntry) => {
+  const handleOpenDetail = useCallback((entry: DailyEntry) => {
     router.push({
       pathname: `/entry/[id]`,
       params: { id: entry.id },
     });
-  };
+  }, [router]);
 
   // Floating '+' / Add entry click
-  const handleOpenAddEntry = () => {
+  const handleOpenAddEntry = useCallback(() => {
     router.push('/add-entry');
-  };
+  }, [router]);
 
   // Bottom navigation tab click
-  const handleTabPress = async (tab: string) => {
+  const handleTabPress = useCallback(async (tab: string) => {
     if (tab === 'home') {
       router.replace('/home');
       return;
     }
     if (tab === 'entries') {
-      // Already on entries screen
       return;
     }
     if (tab === 'reports') {
@@ -180,25 +187,23 @@ export default function EntriesScreen() {
       router.push('/profile');
       return;
     }
-  };
+  }, [router]);
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <LedgerBackground />
+  // Virtualized list item renderer
+  const renderItem = useCallback(
+    ({ item }: { item: DailyEntry }) => (
+      <EntryListCard entry={item} onPress={handleOpenDetail} />
+    ),
+    [handleOpenDetail]
+  );
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#0E5B42']}
-            tintColor="#0E5B42"
-          />
-        }
-      >
-        {/* Header matching screenshot */}
+  const keyExtractor = useCallback((item: DailyEntry) => item.id, []);
+
+  // List header component (Search & Month navigation)
+  const listHeader = useMemo(
+    () => (
+      <View>
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Entries</Text>
           <Text style={styles.headerSubtitle}>All your daily records</Text>
@@ -259,56 +264,85 @@ export default function EntriesScreen() {
             </Pressable>
           )}
         </View>
+      </View>
+    ),
+    [handlePrevMonth, handleNextMonth, selectedYear, selectedMonth, searchQuery]
+  );
 
-        {/* Entries List or States */}
-        {loadingEntries && !refreshing ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="small" color="#0E5B42" />
-            <Text style={styles.loadingText}>Loading records...</Text>
-          </View>
-        ) : errorMessage ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={36} color={Colors.expenseRed} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-            <Pressable style={styles.retryButton} onPress={() => fetchMonthEntries()}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : filteredEntries.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons
-                name={searchQuery ? 'search-outline' : 'receipt-outline'}
-                size={32}
-                color="#64748B"
-              />
-            </View>
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No matching entries' : 'No entries yet'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery
-                ? 'Try searching with different keywords.'
-                : 'No daily records found for this month.'}
-            </Text>
-            {!searchQuery && (
-              <Pressable style={styles.addEntryActionBtn} onPress={handleOpenAddEntry}>
-                <Text style={styles.addEntryActionBtnText}>+ Add entry</Text>
-              </Pressable>
-            )}
-          </View>
-        ) : (
-          <View style={styles.listContainer}>
-            {filteredEntries.map((entry) => (
-              <EntryListCard
-                key={entry.id}
-                entry={entry}
-                onPress={handleOpenDetail}
-              />
-            ))}
-          </View>
+  // List empty / status component
+  const listEmptyComponent = useMemo(() => {
+    if (loadingEntries && !refreshing) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="small" color="#0E5B42" />
+          <Text style={styles.loadingText}>Loading records...</Text>
+        </View>
+      );
+    }
+
+    if (errorMessage) {
+      return (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={36} color={Colors.expenseRed} />
+          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Pressable style={styles.retryButton} onPress={() => fetchMonthEntries()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconCircle}>
+          <Ionicons
+            name={searchQuery ? 'search-outline' : 'receipt-outline'}
+            size={32}
+            color="#64748B"
+          />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {searchQuery ? 'No matching entries' : 'No entries yet'}
+        </Text>
+        <Text style={styles.emptySubtitle}>
+          {searchQuery
+            ? 'Try searching with different keywords.'
+            : 'No daily records found for this month.'}
+        </Text>
+        {!searchQuery && (
+          <Pressable style={styles.addEntryActionBtn} onPress={handleOpenAddEntry}>
+            <Text style={styles.addEntryActionBtnText}>+ Add entry</Text>
+          </Pressable>
         )}
-      </ScrollView>
+      </View>
+    );
+  }, [loadingEntries, refreshing, errorMessage, searchQuery, fetchMonthEntries, handleOpenAddEntry]);
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <LedgerBackground />
+
+      <FlatList
+        data={filteredEntries}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmptyComponent}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#0E5B42']}
+            tintColor="#0E5B42"
+          />
+        }
+      />
 
       {/* Fixed Bottom Navigation with Entries Tab Active */}
       <BottomNavigation
@@ -406,9 +440,6 @@ const styles = StyleSheet.create({
   },
   clearSearchBtn: {
     padding: 4,
-  },
-  listContainer: {
-    marginTop: 2,
   },
   centerContainer: {
     paddingVertical: 60,

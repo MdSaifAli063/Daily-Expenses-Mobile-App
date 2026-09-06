@@ -7,12 +7,12 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { LedgerBackground } from '../components/LedgerBackground';
+import { BrandLogoHeader } from '../components/BrandLogoHeader';
 import { Input } from '../components/Input';
 import { PasswordInput } from '../components/PasswordInput';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -30,7 +30,6 @@ interface FormErrors {
 export default function RegisterScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
-  const { height } = useWindowDimensions();
 
   // Form field state
   const [shopName, setShopName] = useState('');
@@ -45,9 +44,6 @@ export default function RegisterScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [confirmationMessage, setConfirmationMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Responsive top space calculation
-  const topSpace = Math.max(height * 0.07, 28);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -67,14 +63,17 @@ export default function RegisterScreen() {
     if (!cleanMobile) {
       newErrors.mobile = 'Mobile number is required';
     } else if (cleanMobile.length < 10) {
-      newErrors.mobile = 'Please enter a valid 10-digit mobile number';
+      newErrors.mobile = 'Enter 10-digit mobile number';
     }
 
-    // 4. Email (optional)
-    if (email.trim()) {
+    // 4. Email address (REQUIRED)
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      newErrors.email = 'Email address is required';
+    } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        newErrors.email = 'Please enter a valid email address';
+      if (!emailRegex.test(cleanEmail)) {
+        newErrors.email = 'Enter a valid email address';
       }
     }
 
@@ -112,7 +111,7 @@ export default function RegisterScreen() {
         password,
         shopName: shopName.trim(),
         ownerName: ownerName.trim(),
-        email: email.trim() || undefined,
+        email: email.trim(),
       });
 
       if (error) {
@@ -175,13 +174,10 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Intentional ledger top spacing */}
-          <View style={{ height: topSpace }} />
-
-          {/* Main Content Area */}
+          {/* Main Content Area: Fits comfortably in screen without scrolling */}
           <View style={styles.contentContainer}>
-            {/* Brand / Category Text */}
-            <Text style={styles.categoryText}>EXPENSES</Text>
+            {/* Upside Brand Name Header */}
+            <BrandLogoHeader variant="compact" />
 
             {/* Main Heading */}
             <Text style={styles.heading}>Open your ledger</Text>
@@ -189,7 +185,7 @@ export default function RegisterScreen() {
             {/* Subtitle */}
             <Text style={styles.subtitle}>Set up your shop in under a minute</Text>
 
-            {/* Form Fields */}
+            {/* Form Fields Container */}
             <View style={styles.formContainer}>
               {/* Error Notice */}
               {authError && (
@@ -205,38 +201,44 @@ export default function RegisterScreen() {
                 </View>
               )}
 
-              {/* 1. Shop Name Field */}
-              <Input
-                label="Shop name"
-                required
-                value={shopName}
-                onChangeText={handleFieldChange('shopName', setShopName)}
-                error={errors.shopName}
-                autoCapitalize="words"
-                returnKeyType="next"
-              />
-
-              {/* 2. Owner Name Field */}
-              <View style={styles.fieldSpacer}>
-                <Input
-                  label="Owner name"
-                  required
-                  value={ownerName}
-                  onChangeText={handleFieldChange('ownerName', setOwnerName)}
-                  error={errors.ownerName}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                />
+              {/* Row 1: Shop Name & Owner Name side by side */}
+              <View style={styles.twoColRow}>
+                <View style={styles.colHalf}>
+                  <Input
+                    label="Shop name"
+                    required
+                    compact
+                    value={shopName}
+                    onChangeText={handleFieldChange('shopName', setShopName)}
+                    error={errors.shopName}
+                    autoCapitalize="words"
+                    placeholder="e.g. Royal Tea"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.colHalf}>
+                  <Input
+                    label="Owner name"
+                    required
+                    compact
+                    value={ownerName}
+                    onChangeText={handleFieldChange('ownerName', setOwnerName)}
+                    error={errors.ownerName}
+                    autoCapitalize="words"
+                    placeholder="e.g. Rajesh Kumar"
+                    returnKeyType="next"
+                  />
+                </View>
               </View>
 
-              {/* 3. Mobile Number Field (Required for Login) */}
+              {/* Row 2: Mobile Number Field (Required) */}
               <View style={styles.fieldSpacer}>
                 <Input
                   label="Mobile number"
                   required
+                  compact
                   value={mobile}
                   onChangeText={handleFieldChange('mobile', setMobile)}
-                  helperText="Used to log in to your account"
                   error={errors.mobile}
                   placeholder="10-digit mobile number"
                   keyboardType="phone-pad"
@@ -246,15 +248,16 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* 4. Email Field (Optional) */}
+              {/* Row 3: Email Address Field (Required) */}
               <View style={styles.fieldSpacer}>
                 <Input
-                  label="Email"
+                  label="Email address"
+                  required
+                  compact
                   value={email}
                   onChangeText={handleFieldChange('email', setEmail)}
-                  helperText="Optional for reports & recovery"
                   error={errors.email}
-                  placeholder="Optional email"
+                  placeholder="e.g. shop@example.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
@@ -263,30 +266,34 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              {/* 5. Password Field */}
+              {/* Row 4: Password Field */}
               <View style={styles.fieldSpacer}>
                 <PasswordInput
                   label="Password"
                   required
+                  compact
                   value={password}
                   onChangeText={handleFieldChange('password', setPassword)}
                   error={errors.password}
                   autoComplete="new-password"
                   textContentType="newPassword"
+                  placeholder="At least 6 characters"
                   returnKeyType="next"
                 />
               </View>
 
-              {/* 6. Confirm Password Field */}
+              {/* Row 5: Confirm Password Field */}
               <View style={styles.fieldSpacer}>
                 <PasswordInput
                   label="Confirm password"
                   required
+                  compact
                   value={confirmPassword}
                   onChangeText={handleFieldChange('confirmPassword', setConfirmPassword)}
                   error={errors.confirmPassword}
                   autoComplete="new-password"
                   textContentType="newPassword"
+                  placeholder="Re-enter password"
                   returnKeyType="done"
                   onSubmitEditing={handleCreateAccount}
                 />
@@ -331,28 +338,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 28,
-    paddingBottom: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
   },
   contentContainer: {
     width: '100%',
     alignItems: 'center',
   },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 3.5,
-    color: Colors.brandTeal,
-    textAlign: 'center',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
   heading: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.primaryText,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 2,
     fontFamily: Platform.select({
       ios: 'Georgia',
       android: 'serif',
@@ -360,25 +359,34 @@ const styles = StyleSheet.create({
     }),
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12.5,
     color: Colors.secondaryText,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 10,
+    fontWeight: '500',
   },
   formContainer: {
     width: '100%',
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 10,
+  },
+  colHalf: {
+    flex: 1,
   },
   errorBanner: {
     backgroundColor: 'rgba(184, 50, 50, 0.08)',
     borderWidth: 1,
     borderColor: Colors.inputBorderError,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
   },
   errorBannerText: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.errorText,
     textAlign: 'center',
     fontWeight: '500',
@@ -387,36 +395,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(35, 71, 57, 0.08)',
     borderWidth: 1,
     borderColor: Colors.accentGreen,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
   },
   successBannerText: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.accentGreen,
     textAlign: 'center',
     fontWeight: '500',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   fieldSpacer: {
-    marginTop: 18,
+    marginTop: 8,
   },
   buttonSpacer: {
-    marginTop: 26,
+    marginTop: 14,
   },
   footerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32,
+    marginTop: 12,
   },
   footerPrompt: {
-    fontSize: 13.5,
+    fontSize: 13,
     color: Colors.secondaryText,
   },
   footerLink: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '600',
     color: Colors.accentGreen,
     textDecorationLine: 'underline',

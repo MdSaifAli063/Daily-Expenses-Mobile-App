@@ -18,7 +18,7 @@ export interface BottomNavigationProps {
 /**
  * Fixed Bottom Navigation Bar with 4 tabs and a centered elevated floating "+" action button.
  */
-export function BottomNavigation({
+export const BottomNavigation = React.memo(function BottomNavigation({
   activeTab = 'home',
   onTabPress,
   onAddPress,
@@ -158,7 +158,7 @@ export function BottomNavigation({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {

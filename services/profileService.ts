@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Shop, UpdateShopInput } from '../types/shop';
+import { shopService } from './shopService';
 
 /**
  * Service handling database operations for user/shop profile.
@@ -67,6 +68,7 @@ export const profileService = {
         return { data: null, error: new Error(error.message) };
       }
 
+      shopService.invalidateShopCache();
       return { data: data as Shop, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update profile';

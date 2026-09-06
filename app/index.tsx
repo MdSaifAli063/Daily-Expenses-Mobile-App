@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { LedgerBackground } from '../components/LedgerBackground';
+import { BrandLogoHeader } from '../components/BrandLogoHeader';
 import { Input } from '../components/Input';
 import { PasswordInput } from '../components/PasswordInput';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -27,8 +28,8 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { height } = useWindowDimensions();
 
-  // Responsive top space calculation ensuring intentional empty top ledger area
-  const topSpace = Math.max(height * 0.14, 50);
+  // Responsive top space calculation
+  const topSpace = Math.max(height * 0.05, 20);
 
   const handleSignIn = async () => {
     const trimmedInput = mobile.trim();
@@ -87,13 +88,13 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Intentional large empty area at top */}
+          {/* Top spacing */}
           <View style={{ height: topSpace }} />
 
           {/* Main Login Content Area */}
           <View style={styles.contentContainer}>
-            {/* Brand / Category Text */}
-            <Text style={styles.categoryText}>EXPENSES</Text>
+            {/* Upside Brand Name Header */}
+            <BrandLogoHeader variant="compact" />
 
             {/* Main Heading */}
             <Text style={styles.heading}>Welcome back</Text>

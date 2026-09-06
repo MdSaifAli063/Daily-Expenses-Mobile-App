@@ -15,6 +15,7 @@ export interface PasswordInputProps extends TextInputProps {
   required?: boolean;
   helperText?: string;
   error?: string;
+  compact?: boolean;
 }
 
 /**
@@ -27,6 +28,7 @@ export function PasswordInput({
   required = false,
   helperText,
   error,
+  compact = false,
   style,
   ...props
 }: PasswordInputProps) {
@@ -39,8 +41,8 @@ export function PasswordInput({
 
   return (
     <View style={styles.container}>
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>
+      <View style={[styles.labelRow, compact && styles.labelRowCompact]}>
+        <Text style={[styles.label, compact && styles.labelCompact]}>
           {label}
           {required && <Text style={styles.asterisk}> *</Text>}
         </Text>
@@ -48,12 +50,13 @@ export function PasswordInput({
       <View
         style={[
           styles.inputWrapper,
+          compact && styles.inputWrapperCompact,
           isFocused && styles.inputWrapperFocused,
           error ? styles.inputWrapperError : null,
         ]}
       >
         <TextInput
-          style={[styles.input, style]}
+          style={[styles.input, compact && styles.inputCompact, style]}
           secureTextEntry={!isPasswordVisible}
           placeholderTextColor={Colors.inputPlaceholder}
           onFocus={() => setIsFocused(true)}
@@ -145,5 +148,27 @@ const styles = StyleSheet.create({
     color: Colors.errorText,
     marginTop: 5,
     paddingLeft: 2,
+  },
+  labelRowCompact: {
+    marginBottom: 4,
+  },
+  labelCompact: {
+    fontSize: 12.5,
+  },
+  inputWrapperCompact: {
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  inputCompact: {
+    fontSize: 14,
+  },
+  helperTextCompact: {
+    fontSize: 11,
+    marginTop: 3,
+  },
+  errorTextCompact: {
+    fontSize: 11,
+    marginTop: 3,
   },
 });

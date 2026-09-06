@@ -49,8 +49,8 @@ export default function ReportsScreen() {
   const { user, signOut } = useAuth();
 
   // Shop state
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [loadingShop, setLoadingShop] = useState(true);
+  const [shop, setShop] = useState<Shop | null>(shopService.getCachedShop());
+  const [loadingShop, setLoadingShop] = useState(!shop);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Filter state (default: Week)
@@ -74,10 +74,17 @@ export default function ReportsScreen() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
-  // Load shop profile
+  // Load shop profile using fast cache
   useEffect(() => {
     let isMounted = true;
     if (!user) {
+      setLoadingShop(false);
+      return;
+    }
+
+    const cached = shopService.getCachedShop();
+    if (cached) {
+      setShop(cached);
       setLoadingShop(false);
       return;
     }
@@ -102,27 +109,49 @@ export default function ReportsScreen() {
     };
   }, [user]);
 
-  // Compute active date range based on filters
-  const { startDate, endDate, isCustomRangeValid } = useMemo(() => {
+  // Compute active date range based on filters with strict safety bounds
+  const { startDate, endDate, isCustomRangeValid, rangeError } = useMemo(() => {
     if (activeTab === 'day') {
       const range = getDayRange(daySubPeriod);
-      return { ...range, isCustomRangeValid: true };
+      return { ...range, isCustomRangeValid: true, rangeError: null };
     }
     if (activeTab === 'week') {
       const range = getWeekRange(weekSubPeriod);
-      return { ...range, isCustomRangeValid: true };
+      return { ...range, isCustomRangeValid: true, rangeError: null };
     }
     if (activeTab === 'month') {
       const range = getMonthRange(monthSubPeriod);
-      return { ...range, isCustomRangeValid: true };
+      return { ...range, isCustomRangeValid: true, rangeError: null };
     }
 
-    // Custom
-    const isValid = customStartDate <= customEndDate;
+    // Custom range validation & 366-day safety bound
+    if (customStartDate > customEndDate) {
+      return {
+        startDate: customStartDate,
+        endDate: customEndDate,
+        isCustomRangeValid: false,
+        rangeError: 'Start date must be before or equal to end date.',
+      };
+    }
+
+    const startObj = new Date(customStartDate);
+    const endObj = new Date(customEndDate);
+    const diffDays = (endObj.getTime() - startObj.getTime()) / (1000 * 3600 * 24);
+
+    if (diffDays > 366) {
+      return {
+        startDate: customStartDate,
+        endDate: customEndDate,
+        isCustomRangeValid: false,
+        rangeError: 'Report range cannot exceed 366 days (1 year). Please select a shorter period.',
+      };
+    }
+
     return {
       startDate: customStartDate,
       endDate: customEndDate,
-      isCustomRangeValid: isValid,
+      isCustomRangeValid: true,
+      rangeError: null,
     };
   }, [activeTab, daySubPeriod, weekSubPeriod, monthSubPeriod, customStartDate, customEndDate]);
 
@@ -276,7 +305,7 @@ export default function ReportsScreen() {
           <View style={styles.centerContainer}>
             <Ionicons name="calendar-outline" size={36} color={Colors.expenseRed} />
             <Text style={styles.errorText}>
-              Start date must be before or equal to end date.
+              {rangeError || 'Start date must be before or equal to end date.'}
             </Text>
           </View>
         ) : loadingReport && !refreshing ? (
