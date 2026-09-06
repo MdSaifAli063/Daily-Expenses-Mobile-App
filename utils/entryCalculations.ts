@@ -2,12 +2,13 @@ import { DailyEntry, OtherExpenseItem } from '../types/dailyEntry';
 
 export const BUSINESS_CATEGORIES = ['Business', 'Staff', 'Transport', 'Utilities'];
 export const HOME_CATEGORIES = ['Personal', 'Household'];
-export const GENERAL_CATEGORIES = ['Other'];
+export const GENERAL_CATEGORIES = ['Other', 'Others'];
 
 export interface EntryFinancialBreakdown {
   collection: number;
   businessExpense: number;
   otherBusinessExpense: number;
+  otherExpense: number;
   homeExpense: number;
   otherHomeExpense: number;
   totalOtherExpense: number;
@@ -27,7 +28,7 @@ export function calculateEntryFinancials(entry: DailyEntry): EntryFinancialBreak
 
   let businessExpense = 0;
   let otherHomeExpense = 0;
-  let otherBusinessExpense = 0;
+  let otherExpense = 0;
 
   for (const item of otherExpenses) {
     const amount = Number(item.amount) || 0;
@@ -38,12 +39,12 @@ export function calculateEntryFinancials(entry: DailyEntry): EntryFinancialBreak
     } else if (HOME_CATEGORIES.includes(cat)) {
       otherHomeExpense += amount;
     } else {
-      // General or 'Other' category
-      otherBusinessExpense += amount;
+      // General or 'Others' category
+      otherExpense += amount;
     }
   }
 
-  const totalOtherExpense = businessExpense + otherHomeExpense + otherBusinessExpense;
+  const totalOtherExpense = businessExpense + otherHomeExpense + otherExpense;
   const totalHomeExpense = fixedHomeExpense + otherHomeExpense;
   const totalExpense = fixedHomeExpense + totalOtherExpense;
   const profit = collection - totalExpense;
@@ -51,7 +52,8 @@ export function calculateEntryFinancials(entry: DailyEntry): EntryFinancialBreak
   return {
     collection,
     businessExpense,
-    otherBusinessExpense,
+    otherBusinessExpense: otherExpense, // backwards-compatible alias
+    otherExpense,
     homeExpense: fixedHomeExpense,
     otherHomeExpense,
     totalOtherExpense,

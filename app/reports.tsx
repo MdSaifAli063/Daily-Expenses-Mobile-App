@@ -249,7 +249,7 @@ export default function ReportsScreen() {
       return;
     }
     if (tab === 'profile') {
-      router.push('/profile');
+      router.replace('/profile');
       return;
     }
   };

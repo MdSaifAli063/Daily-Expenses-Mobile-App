@@ -112,15 +112,15 @@ export default function ProfileScreen() {
 
   const handleTabPress = (tab: string) => {
     if (tab === 'home') {
-      router.push('/home');
+      router.replace('/home');
       return;
     }
     if (tab === 'entries') {
-      router.push('/entries');
+      router.replace('/entries');
       return;
     }
     if (tab === 'reports') {
-      router.push('/reports');
+      router.replace('/reports');
       return;
     }
     if (tab === 'profile') {

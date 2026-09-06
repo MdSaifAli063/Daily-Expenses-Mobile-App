@@ -511,8 +511,58 @@ export const dailyEntryService = {
       });
 
       if (!rpcError && rpcData) {
-        dailyEntryService.invalidateEntryCaches();
         const result = rpcData as unknown as SaveDailyEntryResult;
+        const entryId = result?.daily_entry_id;
+
+        // Ensure category is explicitly updated on all other_expenses for this entry
+        // in case the database RPC save_daily_entry was defined without category support
+        if (entryId && input.other_expenses && input.other_expenses.length > 0) {
+          try {
+            const { data: currentRows } = await supabase
+              .from('other_expenses')
+              .select('id, expense_name, amount, category')
+              .eq('daily_entry_id', entryId)
+              .order('id', { ascending: true });
+
+            if (currentRows && currentRows.length > 0) {
+              const remaining = [...currentRows];
+              for (const intended of input.other_expenses) {
+                const targetCat = intended.category?.trim() || 'Business';
+                // 1. Match by exact expense_name and amount first
+                let matchIdx = remaining.findIndex(
+                  (r) =>
+                    r.expense_name === intended.expense_name &&
+                    Number(r.amount) === Number(intended.amount)
+                );
+                // 2. Fallback to expense_name
+                if (matchIdx === -1) {
+                  matchIdx = remaining.findIndex(
+                    (r) => r.expense_name === intended.expense_name
+                  );
+                }
+                // 3. Fallback to first available row
+                if (matchIdx === -1 && remaining.length > 0) {
+                  matchIdx = 0;
+                }
+
+                if (matchIdx !== -1) {
+                  const matched = remaining[matchIdx];
+                  remaining.splice(matchIdx, 1);
+                  if (matched.category !== targetCat) {
+                    await supabase
+                      .from('other_expenses')
+                      .update({ category: targetCat })
+                      .eq('id', matched.id);
+                  }
+                }
+              }
+            }
+          } catch (syncErr) {
+            console.warn('[saveDailyEntry] Category sync warning:', syncErr);
+          }
+        }
+
+        dailyEntryService.invalidateEntryCaches();
         return { data: result, error: null };
       }
 
