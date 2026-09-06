@@ -309,6 +309,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = useCallback(async () => {
     try {
+      shopService.invalidateShopCache();
       const { error } = await supabase.auth.signOut();
       setSession(null);
       setUser(null);
@@ -320,6 +321,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { error: null };
     } catch (err: unknown) {
+      shopService.invalidateShopCache();
       setSession(null);
       setUser(null);
       const message = err instanceof Error ? err.message : 'Sign out failed';

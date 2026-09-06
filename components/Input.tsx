@@ -13,6 +13,7 @@ export interface InputProps extends TextInputProps {
   required?: boolean;
   helperText?: string;
   error?: string;
+  compact?: boolean;
 }
 
 /**
@@ -25,6 +26,7 @@ export function Input({
   required = false,
   helperText,
   error,
+  compact = false,
   style,
   ...props
 }: InputProps) {
@@ -32,8 +34,8 @@ export function Input({
 
   return (
     <View style={styles.container}>
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>
+      <View style={[styles.labelRow, compact && styles.labelRowCompact]}>
+        <Text style={[styles.label, compact && styles.labelCompact]}>
           {label}
           {required && <Text style={styles.asterisk}> *</Text>}
         </Text>
@@ -41,6 +43,7 @@ export function Input({
       <TextInput
         style={[
           styles.input,
+          compact && styles.inputCompact,
           isFocused && styles.inputFocused,
           error ? styles.inputError : null,
           style,
@@ -52,9 +55,9 @@ export function Input({
         {...props}
       />
       {error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={[styles.errorText, compact && styles.errorTextCompact]}>{error}</Text>
       ) : helperText ? (
-        <Text style={styles.helperText}>{helperText}</Text>
+        <Text style={[styles.helperText, compact && styles.helperTextCompact]}>{helperText}</Text>
       ) : null}
     </View>
   );
@@ -106,5 +109,25 @@ const styles = StyleSheet.create({
     color: Colors.errorText,
     marginTop: 5,
     paddingLeft: 2,
+  },
+  labelRowCompact: {
+    marginBottom: 4,
+  },
+  labelCompact: {
+    fontSize: 12.5,
+  },
+  inputCompact: {
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    fontSize: 14,
+  },
+  helperTextCompact: {
+    fontSize: 11,
+    marginTop: 3,
+  },
+  errorTextCompact: {
+    fontSize: 11,
+    marginTop: 3,
   },
 });

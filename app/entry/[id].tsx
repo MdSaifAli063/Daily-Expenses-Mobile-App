@@ -30,28 +30,35 @@ export default function EntryDetailScreen() {
   const { signOut } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [entry, setEntry] = useState<DailyEntry | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedInitial = id ? dailyEntryService.getCachedEntryById(id) : null;
+  const [entry, setEntry] = useState<DailyEntry | null>(cachedInitial);
+  const [loading, setLoading] = useState(!cachedInitial);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Fetch or refresh entry details on screen focus
   const loadEntry = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    const cached = dailyEntryService.getCachedEntryById(id);
+    if (cached) {
+      setEntry(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setErrorMessage(null);
 
     try {
-      const { data, error } = await dailyEntryService.getEntryById(id);
+      const { data, error } = await dailyEntryService.getEntryById(id, false);
       if (error) {
-        setErrorMessage('Unable to load entry details. Please try again.');
+        if (!cached) setErrorMessage('Unable to load entry details. Please try again.');
       } else if (!data) {
-        setErrorMessage('Entry not found or has been deleted.');
+        if (!cached) setErrorMessage('Entry not found or has been deleted.');
       } else {
         setEntry(data);
       }
     } catch (err) {
-      setErrorMessage('Unable to load entry details. Please check your connection.');
+      if (!cached) setErrorMessage('Unable to load entry details. Please check your connection.');
     } finally {
       setLoading(false);
     }

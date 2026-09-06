@@ -7,11 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "dailydoubt",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F4F6F0"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -33,7 +28,22 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-sharing"
-    ]
+      "expo-sharing",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F4F6F0"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "81cfa187-fc62-4ca2-ad27-c065a266db89"
+      }
+    }
   }
 }

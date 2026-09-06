@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Platform,
   Pressable,
@@ -20,10 +20,10 @@ export interface EntryListCardProps {
   onPress: (entry: DailyEntry) => void;
 }
 
-export function EntryListCard({ entry, onPress }: EntryListCardProps) {
-  const { profit } = calculateEntryFinancials(entry);
-  const formattedDate = formatEntryDate(entry.entry_date);
-  const dayName = getDayOfWeek(entry.entry_date);
+function EntryListCardComponent({ entry, onPress }: EntryListCardProps) {
+  const { profit } = useMemo(() => calculateEntryFinancials(entry), [entry]);
+  const formattedDate = useMemo(() => formatEntryDate(entry.entry_date), [entry.entry_date]);
+  const dayName = useMemo(() => getDayOfWeek(entry.entry_date), [entry.entry_date]);
   const isHoliday = entry.day_type === 'holiday';
 
   return (
@@ -66,6 +66,20 @@ export function EntryListCard({ entry, onPress }: EntryListCardProps) {
     </Pressable>
   );
 }
+
+// Optimized comparison to prevent re-renders when parent state updates (e.g. search query keystroke)
+export const EntryListCard = React.memo(EntryListCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.entry.id === nextProps.entry.id &&
+    prevProps.entry.updated_at === nextProps.entry.updated_at &&
+    prevProps.entry.entry_date === nextProps.entry.entry_date &&
+    prevProps.entry.collection === nextProps.entry.collection &&
+    prevProps.entry.home_expense === nextProps.entry.home_expense &&
+    prevProps.entry.day_type === nextProps.entry.day_type &&
+    prevProps.entry.notes === nextProps.entry.notes &&
+    prevProps.onPress === nextProps.onPress
+  );
+});
 
 const styles = StyleSheet.create({
   card: {

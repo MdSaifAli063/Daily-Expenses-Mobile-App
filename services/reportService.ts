@@ -3,6 +3,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
+import { withRetry } from '../utils/networkResilience';
 import { DailyEntry } from '../types/dailyEntry';
 import {
   ReportData,
@@ -78,6 +79,19 @@ function mapDbRowToDailyEntry(data: any): DailyEntry {
   };
 }
 
+/**
+ * Escapes special HTML characters to prevent XSS/injection in generated PDF documents.
+ */
+function escapeHtml(str?: string | null): string {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export const reportService = {
   /**
    * Queries Supabase for all daily entries inside [startDate, endDate],
@@ -92,19 +106,21 @@ export const reportService = {
     try {
       const nextDayAfterEnd = getNextDayDate(endDate);
 
-      const { data, error } = await supabase
-        .from('daily_entries')
-        .select(ENTRY_SELECT_QUERY)
-        .eq('shop_id', shopId)
-        .gte('entry_date', startDate)
-        .lt('entry_date', nextDayAfterEnd)
-        .order('entry_date', { ascending: false });
+      const entries = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('daily_entries')
+          .select(ENTRY_SELECT_QUERY)
+          .eq('shop_id', shopId)
+          .gte('entry_date', startDate)
+          .lt('entry_date', nextDayAfterEnd)
+          .order('entry_date', { ascending: false });
 
-      if (error) {
-        return { data: null, error: new Error(error.message) };
-      }
+        if (error) {
+          throw error;
+        }
 
-      const entries: DailyEntry[] = (data || []).map(mapDbRowToDailyEntry);
+        return (data || []).map(mapDbRowToDailyEntry);
+      });
 
       // Compute summary metrics
       const summary = calculateReportSummary(entries, startDate, endDate);
@@ -173,7 +189,7 @@ export const reportService = {
         <html>
         <head>
           <meta charset="utf-8" />
-          <title>Expense Report - ${shop.shop_name}</title>
+          <title>Expense Report - ${escapeHtml(shop.shop_name)}</title>
           <style>
             body {
               font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -270,10 +286,10 @@ export const reportService = {
         </head>
         <body>
           <div class="header">
-            <div class="shop-name">${shop.shop_name}</div>
-            <div class="owner-name">Owner: ${shop.owner_name}</div>
+            <div class="shop-name">${escapeHtml(shop.shop_name)}</div>
+            <div class="owner-name">Owner: ${escapeHtml(shop.owner_name)}</div>
             <div class="report-title">Expense Report</div>
-            <div class="report-period">Period: ${periodLabel}</div>
+            <div class="report-period">Period: ${escapeHtml(periodLabel)}</div>
           </div>
 
           <div class="section-title">Summary</div>
@@ -332,8 +348,8 @@ export const reportService = {
                     (exp) => `
                   <tr>
                     <td>${formatEntryDate(exp.entry_date)}</td>
-                    <td>${exp.expense_name}</td>
-                    <td><span class="badge">${exp.category}</span></td>
+                    <td>${escapeHtml(exp.expense_name)}</td>
+                    <td><span class="badge">${escapeHtml(exp.category)}</span></td>
                     <td class="text-right expense-val font-bold">${formatCurrency(exp.amount)}</td>
                   </tr>
                 `

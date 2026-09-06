@@ -44,41 +44,94 @@ export default function AddEntryScreen() {
   const params = useLocalSearchParams<{ date?: string; entryId?: string }>();
 
   // Shop state
-  const [shop, setShop] = useState<Shop | null>(null);
-  const [loadingShop, setLoadingShop] = useState(true);
+  const [shop, setShop] = useState<Shop | null>(shopService.getCachedShop());
+  const [loadingShop, setLoadingShop] = useState(!shop);
+
+  // Helper to parse YYYY-MM-DD safely into local timezone Date
+  const parseDateStringToLocalDate = (str?: string): Date => {
+    if (!str) return new Date();
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      return new Date(y, m, d);
+    }
+    return new Date(str);
+  };
+
+  // Synchronously retrieve cached entry if already fetched (e.g. from Detail screen or Month list)
+  const cachedInitialEntry = params.entryId
+    ? dailyEntryService.getCachedEntryById(params.entryId)
+    : params.date
+    ? dailyEntryService.getCachedEntryByDate(params.date, shop?.id)
+    : null;
 
   // Form State
-  const initialDate = params.date ? new Date(params.date) : new Date();
+  const initialDate = cachedInitialEntry
+    ? parseDateStringToLocalDate(cachedInitialEntry.entry_date)
+    : parseDateStringToLocalDate(params.date);
+
   const [selectedDate, setSelectedDate] = useState<Date>(
     isNaN(initialDate.getTime()) ? new Date() : initialDate
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dayType, setDayType] = useState<DayType>('working');
+  const [dayType, setDayType] = useState<DayType>(cachedInitialEntry?.day_type || 'working');
 
-  const [collection, setCollection] = useState('0');
-  const [homeExpense, setHomeExpense] = useState('0');
+  const [collection, setCollection] = useState<string>(
+    cachedInitialEntry ? String(cachedInitialEntry.collection) : '0'
+  );
+  const [homeExpense, setHomeExpense] = useState<string>(
+    cachedInitialEntry ? String(cachedInitialEntry.home_expense) : '0'
+  );
 
   const [otherExpenses, setOtherExpenses] = useState<
     Array<{ id?: string; expense_name: string; amount: string; category: string }>
-  >([]);
-  const [notes, setNotes] = useState('');
+  >(
+    cachedInitialEntry?.other_expenses
+      ? cachedInitialEntry.other_expenses.map((oe) => ({
+          id: oe.id,
+          expense_name: oe.expense_name,
+          amount: String(oe.amount),
+          category: oe.category || 'Business',
+        }))
+      : []
+  );
+  const [notes, setNotes] = useState<string>(cachedInitialEntry?.notes || '');
 
   // Category selection modal state
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [activeExpenseIndexForCategory, setActiveExpenseIndexForCategory] = useState<number | null>(null);
 
   // Status state
-  const [currentEntryId, setCurrentEntryId] = useState<string | null>(params.entryId || null);
-  const [isEditMode, setIsEditMode] = useState(!!params.entryId);
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(
+    cachedInitialEntry?.id || params.entryId || null
+  );
+  const [isEditMode, setIsEditMode] = useState(!!(cachedInitialEntry || params.entryId));
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [collectionError, setCollectionError] = useState<string | null>(null);
 
+  // Ref tracking what entry/date has been loaded so we don't duplicate loads
+  const loadedKeyRef = React.useRef<string | null>(
+    cachedInitialEntry ? (params.entryId ? `id_${params.entryId}` : `date_${params.date}`) : null
+  );
+  const initialEntryDateRef = React.useRef<string | null>(
+    cachedInitialEntry?.entry_date || params.date || null
+  );
+
   // Load user shop
   useEffect(() => {
     let isMounted = true;
     if (!user) {
+      setLoadingShop(false);
+      return;
+    }
+
+    const cached = shopService.getCachedShop();
+    if (cached) {
+      setShop(cached);
       setLoadingShop(false);
       return;
     }
@@ -103,29 +156,33 @@ export default function AddEntryScreen() {
     };
   }, [user]);
 
-  // Load existing entry whenever date, entryId, or shop changes
+  // Load existing entry (by entryId or initial date)
   useEffect(() => {
     let isMounted = true;
-    const dateStr = getLocalDateString(selectedDate);
+    const currentKey = params.entryId
+      ? `id_${params.entryId}`
+      : `date_${params.date || getLocalDateString(selectedDate)}`;
 
-    if (!shop?.id) return;
+    if (loadedKeyRef.current === currentKey) return;
 
-    setLoadingEntry(true);
+    // If querying by date (no entryId), ensure shop is loaded first
+    if (!params.entryId && !shop?.id) return;
+
+    loadedKeyRef.current = currentKey;
+    setLoadingEntry(!cachedInitialEntry);
     setErrorMessage(null);
     setCollectionError(null);
 
-    const loadData = async () => {
-      // If entryId was provided initially and dates match, load by ID or date
-      if (params.entryId && isMounted) {
-        const { data: idData, error: idError } = await dailyEntryService.getEntryById(params.entryId);
+    const loadInitialData = async () => {
+      // 1. If entryId was provided (edit mode from detail card)
+      if (params.entryId) {
+        const { data: idData } = await dailyEntryService.getEntryById(params.entryId);
         if (!isMounted) return;
         if (idData) {
           setCurrentEntryId(idData.id);
           setIsEditMode(true);
-          const entryDateObj = new Date(idData.entry_date);
-          if (!isNaN(entryDateObj.getTime())) {
-            setSelectedDate(entryDateObj);
-          }
+          initialEntryDateRef.current = idData.entry_date;
+          setSelectedDate(parseDateStringToLocalDate(idData.entry_date));
           setDayType(idData.day_type || 'working');
           setCollection(String(idData.collection));
           setHomeExpense(String(idData.home_expense));
@@ -143,16 +200,61 @@ export default function AddEntryScreen() {
         }
       }
 
-      // Query by date
-      const { data, error } = await dailyEntryService.getEntryByDate(dateStr, shop.id);
-      if (!isMounted) return;
-
-      if (error) {
-        console.warn('[AddEntryScreen] Check entry error:', error);
+      // 2. Query by initial date
+      const activeShopId = shop?.id || shopService.getCachedShop()?.id;
+      if (!activeShopId) {
+        setLoadingEntry(false);
+        return;
       }
 
+      const dateStr = params.date || getLocalDateString(selectedDate);
+      const { data } = await dailyEntryService.getEntryByDate(dateStr, activeShopId);
+      if (!isMounted) return;
+
       if (data) {
-        // Entry exists for this date -> Edit Mode
+        setCurrentEntryId(data.id);
+        setIsEditMode(true);
+        initialEntryDateRef.current = data.entry_date;
+        setDayType(data.day_type || 'working');
+        setCollection(String(data.collection));
+        setHomeExpense(String(data.home_expense));
+        setNotes(data.notes || '');
+        setOtherExpenses(
+          (data.other_expenses || []).map((oe) => ({
+            id: oe.id,
+            expense_name: oe.expense_name,
+            amount: String(oe.amount),
+            category: oe.category || 'Business',
+          }))
+        );
+      } else {
+        setCurrentEntryId(null);
+        setIsEditMode(false);
+      }
+      setLoadingEntry(false);
+    };
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shop?.id, params.entryId, params.date]);
+
+  // Date selection handler: explicitly checks entry for newly chosen date
+  const handleDatePicked = async (newDate: Date) => {
+    setSelectedDate(newDate);
+    const dateStr = getLocalDateString(newDate);
+    const activeShopId = shop?.id || shopService.getCachedShop()?.id;
+    if (!activeShopId) return;
+
+    setLoadingEntry(true);
+    setErrorMessage(null);
+    setCollectionError(null);
+
+    try {
+      const { data } = await dailyEntryService.getEntryByDate(dateStr, activeShopId);
+      if (data) {
         setCurrentEntryId(data.id);
         setIsEditMode(true);
         setDayType(data.day_type || 'working');
@@ -168,30 +270,19 @@ export default function AddEntryScreen() {
           }))
         );
       } else {
-        // Fresh entry for this date -> Defaults
-        if (!params.entryId) {
-          setCurrentEntryId(null);
-          setIsEditMode(false);
-        }
+        setCurrentEntryId(null);
+        setIsEditMode(false);
         setDayType('working');
         setCollection('0');
         setHomeExpense('0');
         setNotes('');
         setOtherExpenses([]);
       }
+    } catch (err) {
+      console.warn('[AddEntryScreen] Date change load error:', err);
+    } finally {
       setLoadingEntry(false);
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedDate, shop?.id, params.entryId]);
-
-  // Date selection handler
-  const handleDatePicked = (newDate: Date) => {
-    setSelectedDate(newDate);
+    }
   };
 
   // Currency input sanitization: allow only digits and single decimal point
@@ -281,8 +372,13 @@ export default function AddEntryScreen() {
     setIsSaving(true);
 
     try {
-      // Check date collision if editing an existing entry and date is altered
-      if (currentEntryId && shop?.id) {
+      // Check date collision only if editing an existing entry and date was actually altered
+      if (
+        currentEntryId &&
+        shop?.id &&
+        initialEntryDateRef.current &&
+        initialEntryDateRef.current !== dateStr
+      ) {
         const { hasCollision } = await dailyEntryService.checkDateCollision(
           dateStr,
           currentEntryId,
@@ -538,7 +634,7 @@ export default function AddEntryScreen() {
             ) : (
               <View style={styles.otherExpensesList}>
                 {otherExpenses.map((item, index) => (
-                  <View key={index} style={styles.otherExpenseCard}>
+                  <View key={item.id || `oe_${index}`} style={styles.otherExpenseCard}>
                     {/* Top Row: Name label + Input with Trash */}
                     <Text style={styles.expenseCardLabel}>Name</Text>
                     <View style={styles.expenseNameRow}>

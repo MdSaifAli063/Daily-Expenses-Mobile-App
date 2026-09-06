@@ -1,33 +1,81 @@
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { CreateShopInput, Shop, UpdateShopInput } from '../types/shop';
+import { withRetry } from '../utils/networkResilience';
+
+// In-memory cache and promise deduplication
+let cachedShop: Shop | null = null;
+let currentShopPromise: Promise<{ data: Shop | null; error: Error | null }> | null = null;
 
 /**
  * Service handling database operations for the shops table.
  * All queries are strictly scoped by user_id and enforced by PostgreSQL Row Level Security (RLS).
+ * Includes in-memory caching and request deduplication to prevent repeated network queries.
  */
 export const shopService = {
   /**
-   * Retrieves the shop profile belonging to the specified authenticated user.
+   * Clears the in-memory shop cache (e.g. on logout or when switching users).
    */
-  async getCurrentShop(userId: string): Promise<{ data: Shop | null; error: Error | null }> {
-    try {
-      const { data, error } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+  invalidateShopCache(): void {
+    cachedShop = null;
+    currentShopPromise = null;
+  },
 
-      if (error) {
-        console.error('[shopService.getCurrentShop] Database error:', error.message);
-        return { data: null, error: new Error(error.message) };
-      }
+  /**
+   * Retrieves the currently cached shop profile synchronously (if available).
+   */
+  getCachedShop(): Shop | null {
+    return cachedShop;
+  },
 
-      return { data: data as Shop | null, error: null };
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch shop profile';
-      return { data: null, error: new Error(message) };
+  /**
+   * Retrieves the shop profile belonging to the specified authenticated user.
+   * Utilizes in-memory cache and promise deduplication to prevent request storms.
+   */
+  async getCurrentShop(
+    userId: string,
+    forceRefresh: boolean = false
+  ): Promise<{ data: Shop | null; error: Error | null }> {
+    // Return cached shop if valid and not forcing a refresh
+    if (!forceRefresh && cachedShop && cachedShop.user_id === userId) {
+      return { data: cachedShop, error: null };
     }
+
+    // Return in-flight promise if another request is already active
+    if (currentShopPromise) {
+      return currentShopPromise;
+    }
+
+    currentShopPromise = (async () => {
+      try {
+        const result = await withRetry(async () => {
+          const { data, error } = await supabase
+            .from('shops')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (error) {
+            throw error;
+          }
+          return data as Shop | null;
+        });
+
+        if (result) {
+          cachedShop = result;
+        }
+
+        return { data: result, error: null };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to fetch shop profile';
+        console.error('[shopService.getCurrentShop] Database error:', message);
+        return { data: null, error: new Error(message) };
+      } finally {
+        currentShopPromise = null;
+      }
+    })();
+
+    return currentShopPromise;
   },
 
   /**
@@ -36,7 +84,11 @@ export const shopService = {
    */
   async createShop(shopInput: CreateShopInput): Promise<{ data: Shop | null; error: Error | null }> {
     try {
-      // First check if profile already exists for this user to avoid duplicates
+      // Check cached or existing profile first
+      if (cachedShop && cachedShop.user_id === shopInput.user_id) {
+        return { data: cachedShop, error: null };
+      }
+
       const { data: existingShop } = await supabase
         .from('shops')
         .select('*')
@@ -44,7 +96,8 @@ export const shopService = {
         .maybeSingle();
 
       if (existingShop) {
-        return { data: existingShop as Shop, error: null };
+        cachedShop = existingShop as Shop;
+        return { data: cachedShop, error: null };
       }
 
       const { data, error } = await supabase
@@ -60,15 +113,16 @@ export const shopService = {
         .single();
 
       if (error) {
-        // If race condition hit unique constraint (code 23505), fetch the existing row
         if (error.code === '23505') {
-          return this.getCurrentShop(shopInput.user_id);
+          return this.getCurrentShop(shopInput.user_id, true);
         }
         console.error('[shopService.createShop] Insert error:', error.message);
         return { data: null, error: new Error(error.message) };
       }
 
-      return { data: data as Shop, error: null };
+      const created = data as Shop;
+      cachedShop = created;
+      return { data: created, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create shop profile';
       return { data: null, error: new Error(message) };
@@ -79,8 +133,11 @@ export const shopService = {
    * Safe getter/fallback creator for post-email-confirmation logins.
    * If a user logs in and the shops row does not exist yet, creates it from signup metadata.
    */
-  async getOrCreateShopForUser(user: User): Promise<{ data: Shop | null; error: Error | null }> {
-    const { data: existingShop, error: fetchError } = await this.getCurrentShop(user.id);
+  async getOrCreateShopForUser(
+    user: User,
+    forceRefresh: boolean = false
+  ): Promise<{ data: Shop | null; error: Error | null }> {
+    const { data: existingShop, error: fetchError } = await this.getCurrentShop(user.id, forceRefresh);
     if (existingShop) {
       return { data: existingShop, error: null };
     }
@@ -101,7 +158,7 @@ export const shopService = {
   },
 
   /**
-   * Updates the shop profile belonging to the current user.
+   * Updates the shop profile belonging to the current user and refreshes cache.
    */
   async updateCurrentShop(
     userId: string,
@@ -125,7 +182,9 @@ export const shopService = {
         return { data: null, error: new Error(error.message) };
       }
 
-      return { data: data as Shop, error: null };
+      const updated = data as Shop;
+      cachedShop = updated;
+      return { data: updated, error: null };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update shop profile';
       return { data: null, error: new Error(message) };
