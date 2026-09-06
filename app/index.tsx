@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -71,6 +72,15 @@ export default function LoginScreen() {
 
   const handleRegister = () => {
     router.push('/register');
+  };
+
+  const handleOpenSoftTricksCode = async () => {
+    try {
+      const url = 'https://www.softtrickscode.com';
+      await Linking.openURL(url);
+    } catch (err) {
+      console.warn('[LoginScreen] Could not open link:', err);
+    }
   };
 
   return (
@@ -179,6 +189,19 @@ export default function LoginScreen() {
                 <Text style={styles.registerLink}>Register here</Text>
               </Pressable>
             </View>
+
+            {/* Powered by Soft Tricks Code */}
+            <Pressable
+              onPress={handleOpenSoftTricksCode}
+              hitSlop={8}
+              style={styles.poweredByContainer}
+              accessibilityRole="link"
+              accessibilityLabel="Powered by Soft Tricks Code"
+            >
+              <Text style={styles.poweredByText}>
+                Powered by <Text style={styles.poweredByBrand}>Soft Tricks Code</Text>
+              </Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -279,5 +302,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.accentGreen,
     textDecorationLine: 'underline',
+  },
+  poweredByContainer: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  poweredByText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '400',
+  },
+  poweredByBrand: {
+    color: Colors.accentGreen,
+    fontWeight: '700',
   },
 });

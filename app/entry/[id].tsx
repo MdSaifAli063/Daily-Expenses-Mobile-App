@@ -139,11 +139,11 @@ export default function EntryDetailScreen() {
       return;
     }
     if (tab === 'reports') {
-      router.push('/reports');
+      router.replace('/reports');
       return;
     }
     if (tab === 'profile') {
-      router.push('/profile');
+      router.replace('/profile');
       return;
     }
   };
@@ -259,11 +259,11 @@ export default function EntryDetailScreen() {
             </Text>
           </View>
 
-          {/* Other business expense */}
+          {/* Other expenses */}
           <View style={styles.metricRow}>
-            <Text style={styles.metricLabel}>Other business expense</Text>
+            <Text style={styles.metricLabel}>Other expenses</Text>
             <Text style={[styles.metricValue, styles.expenseText]}>
-              {formatCurrency(financials.otherBusinessExpense)}
+              {formatCurrency(financials.otherExpense ?? financials.otherBusinessExpense)}
             </Text>
           </View>
 

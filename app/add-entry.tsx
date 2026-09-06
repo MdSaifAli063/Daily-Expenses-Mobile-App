@@ -30,6 +30,7 @@ import { Shop } from '../types/shop';
 
 const CATEGORY_OPTIONS = [
   'Business',
+  'Others',
   'Personal',
   'Household',
   'Staff',
@@ -98,6 +99,9 @@ export default function AddEntryScreen() {
       : []
   );
   const [notes, setNotes] = useState<string>(cachedInitialEntry?.notes || '');
+
+  // Inline category selector state (zero touch conflicts)
+  const [expandedCategoryIndex, setExpandedCategoryIndex] = useState<number | null>(null);
 
   // Category selection modal state
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
@@ -321,18 +325,33 @@ export default function AddEntryScreen() {
   };
 
   const handleSelectCategory = (category: string) => {
-    if (activeExpenseIndexForCategory !== null) {
+    const targetIdx = activeExpenseIndexForCategory;
+    if (targetIdx !== null && targetIdx >= 0) {
       setOtherExpenses((prev) => {
+        if (!prev[targetIdx]) return prev;
         const updated = [...prev];
-        updated[activeExpenseIndexForCategory] = {
-          ...updated[activeExpenseIndexForCategory],
-          category,
+        updated[targetIdx] = {
+          ...updated[targetIdx],
+          category: category.trim(),
         };
         return updated;
       });
     }
     setCategoryModalVisible(false);
     setActiveExpenseIndexForCategory(null);
+  };
+
+  const handleSelectCategoryForIndex = (index: number, category: string) => {
+    setOtherExpenses((prev) => {
+      if (!prev[index]) return prev;
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        category: category.trim(),
+      };
+      return updated;
+    });
+    setExpandedCategoryIndex(null);
   };
 
   const handleRemoveOtherExpense = (index: number) => {
@@ -444,11 +463,11 @@ export default function AddEntryScreen() {
       return;
     }
     if (tab === 'reports') {
-      router.push('/reports');
+      router.replace('/reports');
       return;
     }
     if (tab === 'profile') {
-      router.push('/profile');
+      router.replace('/profile');
       return;
     }
   };
@@ -685,28 +704,76 @@ export default function AddEntryScreen() {
                       <View style={styles.expenseCardHalfCol}>
                         <Text style={styles.expenseCardLabel}>Category</Text>
                         <Pressable
-                          style={styles.categoryPickerBtn}
+                          style={[
+                            styles.categoryPickerBtn,
+                            expandedCategoryIndex === index && styles.categoryPickerBtnActive,
+                          ]}
                           onPress={() => {
-                            setActiveExpenseIndexForCategory(index);
-                            setCategoryModalVisible(true);
+                            setExpandedCategoryIndex((curr) => (curr === index ? null : index));
                           }}
                           accessibilityRole="button"
                           accessibilityLabel="Select expense category"
                         >
                           <Text
-                            style={styles.categoryPickerText}
+                            style={[
+                              styles.categoryPickerText,
+                              expandedCategoryIndex === index && styles.categoryPickerTextActive,
+                            ]}
                             numberOfLines={1}
                           >
                             {item.category || 'Business'}
                           </Text>
                           <Ionicons
-                            name="chevron-down"
+                            name={expandedCategoryIndex === index ? 'chevron-up' : 'chevron-down'}
                             size={16}
-                            color="#64748B"
+                            color={expandedCategoryIndex === index ? '#0E5B42' : '#64748B'}
                           />
                         </Pressable>
                       </View>
                     </View>
+
+                    {/* Inline Category Pills Selector (Instant tap, 0 touch bugs) */}
+                    {expandedCategoryIndex === index && (
+                      <View style={styles.inlineCategoryContainer}>
+                        <Text style={styles.inlineCategoryHeading}>Tap to change category:</Text>
+                        <View style={styles.inlineCategoryPillsRow}>
+                          {CATEGORY_OPTIONS.map((cat) => {
+                            const isSelected = (item.category || 'Business') === cat;
+                            return (
+                              <Pressable
+                                key={cat}
+                                style={[
+                                  styles.inlineCategoryPill,
+                                  isSelected && styles.inlineCategoryPillSelected,
+                                ]}
+                                onPress={() => {
+                                  handleSelectCategoryForIndex(index, cat);
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Select category ${cat}`}
+                              >
+                                <Text
+                                  style={[
+                                    styles.inlineCategoryPillText,
+                                    isSelected && styles.inlineCategoryPillTextSelected,
+                                  ]}
+                                >
+                                  {cat}
+                                </Text>
+                                {isSelected && (
+                                  <Ionicons
+                                    name="checkmark-circle"
+                                    size={13}
+                                    color="#FFFFFF"
+                                    style={{ marginLeft: 3 }}
+                                  />
+                                )}
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
                   </View>
                 ))}
               </View>
@@ -763,22 +830,26 @@ export default function AddEntryScreen() {
         visible={categoryModalVisible}
         transparent
         animationType="fade"
+        statusBarTranslucent
         onRequestClose={() => {
           setCategoryModalVisible(false);
           setActiveExpenseIndexForCategory(null);
         }}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => {
-            setCategoryModalVisible(false);
-            setActiveExpenseIndexForCategory(null);
-          }}
-        >
+        <View style={styles.modalOverlay}>
+          {/* Backdrop layer */}
           <Pressable
-            style={styles.categoryModalCard}
-            onPress={(e) => e.stopPropagation()}
-          >
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              setCategoryModalVisible(false);
+              setActiveExpenseIndexForCategory(null);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Close modal backdrop"
+          />
+
+          {/* Modal Content Card */}
+          <View style={styles.categoryModalCard}>
             <View style={styles.categoryModalHeader}>
               <Text style={styles.categoryModalTitle}>Select Category</Text>
               <Pressable
@@ -786,7 +857,7 @@ export default function AddEntryScreen() {
                   setCategoryModalVisible(false);
                   setActiveExpenseIndexForCategory(null);
                 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityRole="button"
                 accessibilityLabel="Close category modal"
               >
@@ -805,9 +876,10 @@ export default function AddEntryScreen() {
                 return (
                   <Pressable
                     key={cat}
-                    style={[
+                    style={({ pressed }) => [
                       styles.categoryOptionItem,
                       isSelected && styles.categoryOptionItemSelected,
+                      pressed && styles.categoryOptionItemPressed,
                     ]}
                     onPress={() => handleSelectCategory(cat)}
                     accessibilityRole="button"
@@ -832,8 +904,8 @@ export default function AddEntryScreen() {
                 );
               })}
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1116,7 +1188,55 @@ const styles = StyleSheet.create({
     color: Colors.inputText,
     fontWeight: '500',
   },
-  modalBackdrop: {
+  categoryPickerBtnActive: {
+    borderColor: '#0E5B42',
+    backgroundColor: '#F0F8F4',
+  },
+  categoryPickerTextActive: {
+    color: '#0E5B42',
+    fontWeight: '700',
+  },
+  inlineCategoryContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#EEF2F6',
+  },
+  inlineCategoryHeading: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: Colors.secondaryText,
+    marginBottom: 7,
+  },
+  inlineCategoryPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  inlineCategoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inlineCategoryPillSelected: {
+    backgroundColor: '#0E5B42',
+    borderColor: '#0E5B42',
+  },
+  inlineCategoryPillText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  inlineCategoryPillTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
@@ -1134,6 +1254,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 8,
+    zIndex: 1,
   },
   categoryModalHeader: {
     flexDirection: 'row',
@@ -1162,6 +1283,9 @@ const styles = StyleSheet.create({
   },
   categoryOptionItemSelected: {
     backgroundColor: '#EBF4F0',
+  },
+  categoryOptionItemPressed: {
+    backgroundColor: '#E2ECE6',
   },
   categoryOptionText: {
     fontSize: 14,

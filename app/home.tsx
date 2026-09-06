@@ -189,15 +189,15 @@ export default function HomeScreen() {
   const handleTabPress = useCallback(
     async (tab: string) => {
       if (tab === 'entries') {
-        router.push('/entries');
+        router.replace('/entries');
         return;
       }
       if (tab === 'reports') {
-        router.push('/reports');
+        router.replace('/reports');
         return;
       }
       if (tab === 'profile') {
-        router.push('/profile');
+        router.replace('/profile');
         return;
       }
     },
@@ -244,10 +244,8 @@ export default function HomeScreen() {
             onAddEntry={handleOpenTodayAction}
             hasEntry={!!todayEntry}
             collectionAmount={todayFinancials?.collection || 0}
-            businessExpenseAmount={
-              (todayFinancials?.businessExpense || 0) +
-              (todayFinancials?.otherBusinessExpense || 0)
-            }
+            businessExpenseAmount={todayFinancials?.businessExpense || 0}
+            otherExpenseAmount={todayFinancials?.otherExpense || 0}
             homeExpenseAmount={
               (todayFinancials?.homeExpense || 0) +
               (todayFinancials?.otherHomeExpense || 0)

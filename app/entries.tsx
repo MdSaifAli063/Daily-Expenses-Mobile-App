@@ -180,11 +180,11 @@ export default function EntriesScreen() {
       return;
     }
     if (tab === 'reports') {
-      router.push('/reports');
+      router.replace('/reports');
       return;
     }
     if (tab === 'profile') {
-      router.push('/profile');
+      router.replace('/profile');
       return;
     }
   }, [router]);

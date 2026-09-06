@@ -3,15 +3,33 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/colors';
 import { LedgerBackground } from '../components/LedgerBackground';
+
+// Keep native splash screen visible while initial auth check completes
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigation() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const initialLaunchHandled = React.useRef(false);
+
+  // Hide splash screen smoothly once the initial auth state is resolved
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 2500); // 2.5s safety fallback
+
+    if (!loading) {
+      clearTimeout(timer);
+      SplashScreen.hideAsync().catch(() => {});
+    }
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     if (loading) return;

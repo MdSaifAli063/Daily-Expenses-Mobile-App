@@ -17,6 +17,7 @@ export interface TodayEntryCardProps {
   hasEntry?: boolean;
   collectionAmount?: number;
   businessExpenseAmount?: number;
+  otherExpenseAmount?: number;
   homeExpenseAmount?: number;
   profitAmount?: number;
   expenseAmount?: number; // legacy fallback
@@ -37,6 +38,7 @@ export function TodayEntryCard({
   hasEntry = false,
   collectionAmount = 0,
   businessExpenseAmount = 0,
+  otherExpenseAmount = 0,
   homeExpenseAmount = 0,
   profitAmount = 0,
   dayType = 'working',
@@ -90,6 +92,14 @@ export function TodayEntryCard({
                 ₹{businessExpenseAmount.toLocaleString('en-IN')}
               </Text>
             </View>
+            {otherExpenseAmount > 0 && (
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Other expenses</Text>
+                <Text style={[styles.breakdownValue, styles.expenseValue]}>
+                  ₹{otherExpenseAmount.toLocaleString('en-IN')}
+                </Text>
+              </View>
+            )}
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Home expense</Text>
               <Text style={[styles.breakdownValue, styles.expenseValue]}>

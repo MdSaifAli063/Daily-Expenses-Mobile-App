@@ -77,6 +77,7 @@ export const EntryListCard = React.memo(EntryListCardComponent, (prevProps, next
     prevProps.entry.home_expense === nextProps.entry.home_expense &&
     prevProps.entry.day_type === nextProps.entry.day_type &&
     prevProps.entry.notes === nextProps.entry.notes &&
+    prevProps.entry.other_expenses === nextProps.entry.other_expenses &&
     prevProps.onPress === nextProps.onPress
   );
 });
